@@ -1,5 +1,5 @@
 // ═════════════════════════════════════════════════════════════════════════
-// 稿纸编辑器 — 自动保存、稿纸样式、翻页、缩放、参考书（列表→详情）
+// 稿纸编辑器 — 逐页编辑、动态分页、自动保存、参考书
 // ═════════════════════════════════════════════════════════════════════════
 
 (function () {
@@ -16,15 +16,19 @@
     paperColor: initData.paperColor || 'cream',
     paperSize: initData.paperSize || 'a5',
     zoom: 1.0,
+    // 全文内容（含 \f 分页符），textarea 只显示当前页片段
+    fullContent: initData.content || '',
     currentPage: 1,
     totalPages: 1,
-    charsPerPage: 500,
+    charsPerPage: 900, // 动态计算
     dirty: false,
     saveTimer: null,
+    // 防止合并时触发 input 循环
+    renderingPage: false,
     refOpen: false,
     refTab: 'char',
     refData: {},
-    refView: 'list',  // 'list' | 'detail'
+    refView: 'list',
     refDetailItem: null,
   };
 
@@ -42,44 +46,63 @@
   var flipOverlay = $('page-flip-overlay');
   var flipCard = $('page-flip-card');
 
-  // ── 字数与分页（支持 \\f 手动分页符） ─────────────────────────
+  // ═════════════════════════════════════════════════════════════
+  // 动态计算每页字数
+  // ═════════════════════════════════════════════════════════════
 
-  // 把内容拆成段：先按 \\f 切开，每段至少占 1 页，长段再按字数分页
+  function computeCharsPerPage() {
+    var style = getComputedStyle(textarea);
+    var fontSize = parseFloat(style.fontSize);
+    var lineHeight = parseFloat(style.lineHeight);
+    // textarea 内容区宽高 = padding-box 减去 padding
+    var padLeft = parseFloat(style.paddingLeft);
+    var padRight = parseFloat(style.paddingRight);
+    var padTop = parseFloat(style.paddingTop);
+    var padBottom = parseFloat(style.paddingBottom);
+    var contentW = textarea.clientWidth - padLeft - padRight;
+    var contentH = textarea.clientHeight - padTop - padBottom;
+    if (contentW <= 0 || contentH <= 0 || fontSize <= 0 || lineHeight <= 0) return;
+    var charsPerLine = Math.floor(contentW / fontSize);
+    var linesPerPage = Math.floor(contentH / lineHeight);
+    state.charsPerPage = Math.max(200, charsPerLine * linesPerPage);
+  }
+
+  // ═════════════════════════════════════════════════════════════
+  // 分页 — 按 \f 切开后每段按 charsPerPage 切子页
+  // ═════════════════════════════════════════════════════════════
+
   function getPageSegments() {
-    var text = textarea.value || '';
+    var text = state.fullContent || '';
     var chunks = text.split('\f');
-    var segments = []; // [{start, end, pageInChunk, globalPage}]
+    var segments = [];
     var cp = state.charsPerPage;
     var globalPage = 1;
+    var cursor = 0; // 当前段在全文中的起始位置
 
-    chunks.forEach(function (chunk) {
-      var chunkStart = segments.length > 0 ? segments[segments.length - 1].end + 1 : 0;
-      // +1 for the \f separator
-      var subPages = Math.ceil(chunk.length / cp) || 1;
+    chunks.forEach(function (chunk, ci) {
+      var subPages = Math.max(1, Math.ceil(chunk.length / cp));
       for (var p = 0; p < subPages; p++) {
         segments.push({
-          start: chunkStart + p * cp,
-          end: Math.min(chunkStart + (p + 1) * cp, chunkStart + chunk.length),
-          pageInChunk: p + 1,
+          start: cursor + p * cp,
+          end: Math.min(cursor + (p + 1) * cp, cursor + chunk.length),
           globalPage: globalPage++,
-          isBreak: false,
+          chunkIndex: ci,
+          isEmpty: (chunk.trim().length === 0),
         });
       }
-      // 每个 chunk 之后有一个隐式的分页标记（\f）
-      chunkStart += chunk.length;
+      cursor += chunk.length;
+      if (ci < chunks.length - 1) cursor += 1; // +1 for the \f char
     });
 
     return segments;
   }
 
   function updateStats() {
-    var text = textarea.value || '';
-    var len = text.length;
-    wordCountEl.textContent = len;
-
-    var segments = getPageSegments();
-    state.totalPages = segments.length || 1;
+    computeCharsPerPage();
+    var segs = getPageSegments();
+    state.totalPages = segs.length || 1;
     if (state.currentPage > state.totalPages) state.currentPage = state.totalPages;
+    wordCountEl.textContent = (state.fullContent || '').length;
     pageIndicator.textContent = state.currentPage + '/' + state.totalPages;
 
     var prevBtn = $('btn-prev-page');
@@ -88,47 +111,43 @@
     if (nextBtn) nextBtn.disabled = state.currentPage >= state.totalPages;
   }
 
-  function getPageStart(pageNum) {
+  // ── 提取当前页内容填入 textarea ────────────────────────────
+
+  function renderPage() {
     var segs = getPageSegments();
-    var seg = segs[pageNum - 1];
-    return seg ? seg.start : 0;
-  }
-
-  function scrollToPage(pageNum) {
-    var start = getPageStart(pageNum);
-    var text = textarea.value || '';
-    if (start > 0 && start < text.length) {
-      var slice = text.substring(Math.max(0, start - 50), start);
-      var nl = slice.lastIndexOf('\n');
-      if (nl >= 0) {
-        start = Math.max(0, start - 50) + nl + 1;
-      }
-    }
-    textarea.focus();
-    textarea.setSelectionRange(start, start);
-    var lineHeight = parseInt(getComputedStyle(textarea).lineHeight) || 24;
-    var padding = parseInt(getComputedStyle(textarea).paddingTop) || 64;
-    var lines = text.substring(0, start).split('\n').length - 1;
-    textarea.scrollTop = lines * lineHeight - padding;
-  }
-
-  // 插入手动分页符
-  function insertPageBreak() {
-    var ta = textarea;
-    var pos = ta.selectionStart;
-    var text = ta.value;
-    ta.value = text.substring(0, pos) + '\f' + text.substring(pos);
-    ta.selectionStart = ta.selectionEnd = pos + 1;
-    ta.focus();
+    var seg = segs[state.currentPage - 1];
+    if (!seg) { textarea.value = ''; return; }
+    state.renderingPage = true;
+    textarea.value = state.fullContent.substring(seg.start, seg.end);
+    state.renderingPage = false;
     updateStats();
-    autoSave();
+    // 显示/隐藏删除按钮
+    var delBtn = $('btn-delete-page');
+    if (delBtn) {
+      delBtn.style.display = (seg.isEmpty && segs.length > 1) ? '' : 'none';
+    }
   }
 
-  // ── 翻页动画 ──────────────────────────────────────────────────
+  // ── 合并：把 textarea 内容写回全文 ──────────────────────────
+
+  function mergePageContent() {
+    if (state.renderingPage) return;
+    var segs = getPageSegments();
+    var seg = segs[state.currentPage - 1];
+    if (!seg) return;
+    var edited = textarea.value;
+    var fc = state.fullContent;
+    state.fullContent = fc.substring(0, seg.start) + edited + fc.substring(seg.end);
+  }
+
+  // ── 翻页 ──────────────────────────────────────────────────
 
   function flipPage(direction) {
     var newPage = state.currentPage + direction;
     if (newPage < 1 || newPage > state.totalPages) return;
+
+    // 翻前先合并当前页的编辑
+    mergePageContent();
 
     var paperRect = paperSheet.getBoundingClientRect();
     flipCard.style.left = paperRect.left + 'px';
@@ -139,40 +158,72 @@
 
     flipOverlay.style.display = 'block';
     flipCard.offsetHeight;
-
     var angle = direction > 0 ? -180 : 180;
     flipCard.style.transition = 'transform 0.5s ease-in-out';
     flipCard.style.transform = 'rotateY(' + angle + 'deg)';
 
     state.currentPage = newPage;
-    updateStats();
 
     setTimeout(function () {
-      scrollToPage(state.currentPage);
+      renderPage();
       flipCard.style.transition = 'none';
       flipCard.style.transform = 'rotateY(0deg)';
       flipOverlay.style.display = 'none';
     }, 480);
   }
 
-  // ── 自动保存 ──────────────────────────────────────────────────
+  // ── 插入手动分页符 ────────────────────────────────────────
+
+  function insertPageBreak() {
+    mergePageContent();
+    var pos = textarea.selectionStart;
+    state.fullContent = state.fullContent.substring(0, pos) + '\f' + state.fullContent.substring(pos);
+    // 光标后的内容被推到新页
+    state.currentPage = Math.min(state.currentPage + 1, getPageSegments().length);
+    renderPage();
+    autoSave();
+  }
+
+  // ── 删除当前空白页 ────────────────────────────────────────
+
+  function deleteCurrentPage() {
+    var segs = getPageSegments();
+    var seg = segs[state.currentPage - 1];
+    if (!seg || !seg.isEmpty) return;
+
+    var chunks = state.fullContent.split('\f');
+    var ci = seg.chunkIndex;
+    if (ci >= chunks.length) return;
+
+    // 移除空段 + 其 \f 分隔符
+    if (chunks.length === 1) return; // 至少保留一个段
+    chunks.splice(ci, 1);
+    state.fullContent = chunks.join('\f');
+
+    // 如果当前页超出总页数，后退
+    var newSegs = getPageSegments();
+    if (state.currentPage > newSegs.length) state.currentPage = newSegs.length;
+    renderPage();
+    autoSave();
+  }
+
+  // ═════════════════════════════════════════════════════════════
+  // 自动保存
+  // ═════════════════════════════════════════════════════════════
 
   function autoSave() {
     if (state.saveTimer) clearTimeout(state.saveTimer);
-    state.saveTimer = setTimeout(function () {
-      saveNow();
-    }, 2000);
+    state.saveTimer = setTimeout(saveNow, 2000);
   }
 
   function saveNow() {
     var indicator = $('save-indicator');
     if (indicator) { indicator.textContent = '保存中…'; indicator.className = 'editor-save-indicator saving'; }
-    var content = textarea.value;
     fetch('/api/chapters/' + chapterId, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        content: content,
+        content: state.fullContent,
         paper_style: state.paperStyle,
         paper_color: state.paperColor,
         paper_size: state.paperSize,
@@ -184,7 +235,9 @@
       });
   }
 
-  // ── 稿纸样式 ──────────────────────────────────────────────────
+  // ═════════════════════════════════════════════════════════════
+  // 稿纸样式 / 颜色 / 尺寸 / 缩放
+  // ═════════════════════════════════════════════════════════════
 
   function setPaperStyle(style) {
     state.paperStyle = style;
@@ -192,7 +245,7 @@
     paperSheet.classList.add('style-' + style);
     $('btn-paper-lined').classList.toggle('active', style === 'lined');
     $('btn-paper-grid').classList.toggle('active', style === 'grid');
-    autoSave();
+    recalcAndRender();
   }
 
   function setPaperColor(color) {
@@ -209,10 +262,8 @@
     paperSheet.classList.toggle('size-a4', size === 'a4');
     $('btn-size-a5').classList.toggle('active', size === 'a5');
     $('btn-size-a4').classList.toggle('active', size === 'a4');
-    autoSave();
+    recalcAndRender();
   }
-
-  // ── 缩放 ──────────────────────────────────────────────────────
 
   function setZoom(delta) {
     state.zoom = Math.max(0.5, Math.min(2.0, +(state.zoom + delta).toFixed(1)));
@@ -220,8 +271,22 @@
     $('editor-zoom-val').textContent = Math.round(state.zoom * 100) + '%';
   }
 
+  // 纸大小/样式变化后重算分页并重绘
+  function recalcAndRender() {
+    // 合并当前页编辑再重算
+    mergePageContent();
+    // 等 CSS transition 完成再测尺寸
+    setTimeout(function () {
+      computeCharsPerPage();
+      var segs = getPageSegments();
+      if (state.currentPage > segs.length) state.currentPage = segs.length;
+      renderPage();
+      autoSave();
+    }, 250);
+  }
+
   // ═════════════════════════════════════════════════════════════
-  // 参考书 — 列表视图 & 详情视图（面板内切换，不跳转）
+  // 参考书 — 列表 & 详情（面板内）
   // ═════════════════════════════════════════════════════════════
 
   function toggleRef() {
@@ -237,10 +302,7 @@
   }
 
   function switchRefTab(tab) {
-    if (state.refTab === tab && state.refOpen) {
-      toggleRef();
-      return;
-    }
+    if (state.refTab === tab && state.refOpen) { toggleRef(); return; }
     state.refTab = tab;
     state.refOpen = true;
     state.refView = 'list';
@@ -254,15 +316,9 @@
     loadRefData(tab);
   }
 
-  // ── 加载并渲染参考书列表 ──────────────────────────────────────
-
   function loadRefData(tab) {
-    if (state.refData[tab]) {
-      renderRefList(tab, state.refData[tab]);
-      return;
-    }
+    if (state.refData[tab]) { renderRefList(tab, state.refData[tab]); return; }
     refPanelBody.innerHTML = '<div class="ref-loading">加载中...</div>';
-
     var endpoints = {
       char: '/api/books/' + bookId + '/reference/characters',
       plot: '/api/books/' + bookId + '/reference/plots',
@@ -270,21 +326,16 @@
     };
     var url = endpoints[tab];
     if (!url) return;
-
-    fetch(url)
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        state.refData[tab] = data;
-        renderRefList(tab, data);
-      });
+    fetch(url).then(function (r) { return r.json(); }).then(function (data) {
+      state.refData[tab] = data;
+      renderRefList(tab, data);
+    });
   }
 
   function renderRefList(tab, data) {
-    state.refView = 'list';
-    state.refDetailItem = null;
-
+    state.refView = 'list'; state.refDetailItem = null;
+    var h = '';
     if (tab === 'world') {
-      var h = '';
       for (var cat in data) {
         if (!data.hasOwnProperty(cat)) continue;
         h += '<div class="ref-cat-title" style="font-size:0.7rem;color:#999;padding:0.4rem 0.5rem 0.15rem;text-transform:uppercase;letter-spacing:.05em">' + esc(cat) + '</div>';
@@ -298,12 +349,9 @@
       refPanelBody.innerHTML = h || '<div class="ref-loading">暂无数据</div>';
     } else if (tab === 'char') {
       if (!data || !data.length) { refPanelBody.innerHTML = '<div class="ref-loading">暂无数据</div>'; return; }
-      var h = '';
       data.forEach(function (c) {
         h += '<div class="ref-item" data-type="char" data-id="' + c.id + '">'
-          + '<div class="ref-item-name">' + esc(c.name)
-          + (c.alias ? '<span class="ref-item-alias">' + esc(c.alias) + '</span>' : '')
-          + '</div>'
+          + '<div class="ref-item-name">' + esc(c.name) + (c.alias ? '<span class="ref-item-alias">' + esc(c.alias) + '</span>' : '') + '</div>'
           + (c.age || c.gender ? '<div class="ref-item-meta">' + [c.age, c.gender].filter(Boolean).join(' · ') + '</div>' : '')
           + (c.description ? '<div class="ref-item-desc">' + esc(c.description) + '</div>' : '')
           + '</div>';
@@ -311,7 +359,6 @@
       refPanelBody.innerHTML = h;
     } else if (tab === 'plot') {
       if (!data || !data.length) { refPanelBody.innerHTML = '<div class="ref-loading">暂无数据</div>'; return; }
-      var h = '';
       data.forEach(function (n) {
         h += '<div class="ref-item" data-type="plot" data-id="' + n.id + '">'
           + '<div class="ref-item-name">' + esc(n.title) + '</div>'
@@ -321,40 +368,24 @@
       });
       refPanelBody.innerHTML = h;
     }
-
-    // 绑定列表项点击 → 进入详情
     refPanelBody.querySelectorAll('.ref-item').forEach(function (item) {
       item.addEventListener('click', function () {
-        var type = this.dataset.type;
-        var id = parseInt(this.dataset.id);
-        loadRefDetail(type, id);
+        loadRefDetail(this.dataset.type, parseInt(this.dataset.id));
       });
     });
   }
 
-  // ── 加载并渲染参考书详情（面板内） ────────────────────────────
-
   function loadRefDetail(type, id) {
     refPanelBody.innerHTML = '<div class="ref-loading">加载中...</div>';
-
-    var urls = {
-      char: '/api/reference/character/',
-      plot: '/api/reference/plot/',
-      world: '/api/reference/world/',
-    };
-    fetch(urls[type] + id)
-      .then(function (r) { return r.json(); })
-      .then(function (data) {
-        state.refView = 'detail';
-        state.refDetailItem = { type: type, data: data };
-        renderRefDetail(type, data);
-      });
+    var urls = { char: '/api/reference/character/', plot: '/api/reference/plot/', world: '/api/reference/world/' };
+    fetch(urls[type] + id).then(function (r) { return r.json(); }).then(function (data) {
+      state.refView = 'detail'; state.refDetailItem = { type: type, data: data };
+      renderRefDetail(type, data);
+    });
   }
 
   function renderRefDetail(type, d) {
-    var h = '';
-    h += '<button class="ref-detail-back" id="ref-detail-back">&larr; 返回列表</button>';
-
+    var h = '<button class="ref-detail-back" id="ref-detail-back">&larr; 返回列表</button>';
     if (type === 'char') {
       h += '<div class="ref-detail-name">' + esc(d.name) + '</div>';
       if (d.alias) h += '<div class="ref-detail-alias">' + esc(d.alias) + '</div>';
@@ -362,36 +393,21 @@
       if (d.age) h += '<tr><td>年龄</td><td>' + esc(d.age) + '</td></tr>';
       if (d.gender) h += '<tr><td>性别</td><td>' + esc(d.gender) + '</td></tr>';
       h += '</table>';
-      if (d.description) {
-        h += '<div class="ref-detail-section">简介</div>';
-        h += '<div class="ref-detail-desc">' + esc(d.description) + '</div>';
-      }
+      if (d.description) { h += '<div class="ref-detail-section">简介</div><div class="ref-detail-desc">' + esc(d.description) + '</div>'; }
       if (d.custom_fields && d.custom_fields.length) {
         h += '<div class="ref-detail-section">自定义字段</div>';
-        d.custom_fields.forEach(function (f) {
-          h += '<div class="ref-field-item"><div class="ref-field-name">' + esc(f.name) + '</div><div class="ref-field-value">' + esc(f.value || '—') + '</div></div>';
-        });
+        d.custom_fields.forEach(function (f) { h += '<div class="ref-field-item"><div class="ref-field-name">' + esc(f.name) + '</div><div class="ref-field-value">' + esc(f.value || '—') + '</div></div>'; });
       }
-      if (d.images && d.images.length) {
-        h += '<div class="ref-detail-section">图片 (' + d.images.length + ')</div>';
-      }
-
     } else if (type === 'plot') {
       h += '<div class="ref-detail-name">' + esc(d.title) + '</div>';
       h += '<table class="ref-detail-table">';
       if (d.time_in_story) h += '<tr><td>时间</td><td>' + esc(d.time_in_story) + '</td></tr>';
       if (d.location) h += '<tr><td>地点</td><td>' + esc(d.location) + '</td></tr>';
       h += '</table>';
-      if (d.summary) {
-        h += '<div class="ref-detail-section">摘要</div>';
-        h += '<div class="ref-detail-desc">' + esc(d.summary) + '</div>';
-      }
+      if (d.summary) { h += '<div class="ref-detail-section">摘要</div><div class="ref-detail-desc">' + esc(d.summary) + '</div>'; }
       if (d.characters && d.characters.length) {
-        h += '<div class="ref-detail-section">关联人物</div>';
-        h += '<div class="ref-char-list">';
-        d.characters.forEach(function (pc) {
-          h += '<span class="ref-char-tag">' + esc(pc.name) + (pc.role ? '<span class="role"> ' + esc(pc.role) + '</span>' : '') + '</span>';
-        });
+        h += '<div class="ref-detail-section">关联人物</div><div class="ref-char-list">';
+        d.characters.forEach(function (pc) { h += '<span class="ref-char-tag">' + esc(pc.name) + (pc.role ? '<span class="role"> ' + esc(pc.role) + '</span>' : '') + '</span>'; });
         h += '</div>';
       }
       if (d.custom_fields && d.custom_fields.length) {
@@ -404,42 +420,18 @@
           }
         });
       }
-
     } else if (type === 'world') {
       h += '<div class="ref-detail-name">' + esc(d.title) + '</div>';
-      h += '<table class="ref-detail-table">';
-      h += '<tr><td>类别</td><td>' + esc(d.category) + '</td></tr>';
-      h += '</table>';
-      if (d.content) {
-        h += '<div class="ref-detail-section">内容</div>';
-        h += '<div class="ref-detail-desc">' + esc(d.content) + '</div>';
-      }
+      h += '<table class="ref-detail-table"><tr><td>类别</td><td>' + esc(d.category) + '</td></tr></table>';
+      if (d.content) { h += '<div class="ref-detail-section">内容</div><div class="ref-detail-desc">' + esc(d.content) + '</div>'; }
       if (d.custom_fields && d.custom_fields.length) {
         h += '<div class="ref-detail-section">描述字段</div>';
-        d.custom_fields.forEach(function (f) {
-          h += '<div class="ref-field-item"><div class="ref-field-name">' + esc(f.name) + '</div><div class="ref-field-value">' + esc(f.value || '—') + '</div></div>';
-        });
+        d.custom_fields.forEach(function (f) { h += '<div class="ref-field-item"><div class="ref-field-name">' + esc(f.name) + '</div><div class="ref-field-value">' + esc(f.value || '—') + '</div></div>'; });
       }
     }
-
     refPanelBody.innerHTML = h;
-
-    // 返回按钮
     var backBtn = document.getElementById('ref-detail-back');
-    if (backBtn) {
-      backBtn.addEventListener('click', function () {
-        renderRefList(state.refTab, state.refData[state.refTab]);
-      });
-    }
-  }
-
-  // ── HTML 转义 ─────────────────────────────────────────────────
-
-  function esc(s) {
-    if (!s) return '';
-    var d = document.createElement('div');
-    d.textContent = s;
-    return d.innerHTML;
+    if (backBtn) backBtn.addEventListener('click', function () { renderRefList(state.refTab, state.refData[state.refTab]); });
   }
 
   // ── 上下章导航 ──────────────────────────────────────────────
@@ -448,61 +440,62 @@
     fetch('/api/chapters/' + chapterId + '/neighbors')
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        var prevBtn = $('btn-prev-chapter');
-        var nextBtn = $('btn-next-chapter');
-        if (data.prev) {
-          prevBtn.href = '/chapters/' + data.prev.id + '/write';
-          prevBtn.title = '上一章：' + data.prev.title;
-          prevBtn.style.display = '';
-        }
-        if (data.next) {
-          nextBtn.href = '/chapters/' + data.next.id + '/write';
-          nextBtn.title = '下一章：' + data.next.title;
-          nextBtn.style.display = '';
-        }
+        var prevBtn = $('btn-prev-chapter'), nextBtn = $('btn-next-chapter');
+        if (data.prev) { prevBtn.href = '/chapters/' + data.prev.id + '/write'; prevBtn.title = '上一章：' + data.prev.title; prevBtn.style.display = ''; }
+        if (data.next) { nextBtn.href = '/chapters/' + data.next.id + '/write'; nextBtn.title = '下一章：' + data.next.title; nextBtn.style.display = ''; }
       });
   }
 
   // ── 键盘快捷键 ────────────────────────────────────────────────
 
   function onKeydown(e) {
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-      e.preventDefault();
-      saveNow();
-    }
-    // Ctrl+Enter → 插入分页符
-    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-      e.preventDefault();
-      insertPageBreak();
-    }
-    // Esc → 如果在看参考书详情，先返回列表；否则关闭参考书
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveNow(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); insertPageBreak(); }
     if (e.key === 'Escape') {
       if (state.refOpen && state.refView === 'detail') {
         renderRefList(state.refTab, state.refData[state.refTab]);
-      } else if (state.refOpen) {
-        toggleRef();
-      }
+      } else if (state.refOpen) { toggleRef(); }
     }
   }
 
-  // ── 初始化 ────────────────────────────────────────────────────
+  // ── HTML 转义 ─────────────────────────────────────────────────
+
+  function esc(s) {
+    if (!s) return '';
+    var d = document.createElement('div'); d.textContent = s; return d.innerHTML;
+  }
+
+  // ═════════════════════════════════════════════════════════════
+  // 初始化
+  // ═════════════════════════════════════════════════════════════
 
   function init() {
+    // 样式
     setPaperStyle(state.paperStyle);
     setPaperColor(state.paperColor);
     setPaperSize(state.paperSize);
     paperScale.style.transform = 'scale(' + state.zoom + ')';
-    updateStats();
 
+    // 先测尺寸再渲染首页
+    setTimeout(function () {
+      computeCharsPerPage();
+      renderPage();
+    }, 100);
+
+    // 输入 → 合并 + 自动保存（输入过程中不重新分页，翻页时才刷新分页）
     textarea.addEventListener('input', function () {
+      if (state.renderingPage) return;
       state.dirty = true;
+      mergePageContent();
       updateStats();
       autoSave();
       var indicator = $('save-indicator');
       if (indicator) { indicator.textContent = '未保存'; indicator.className = 'editor-save-indicator'; }
     });
+
     textarea.addEventListener('keydown', onKeydown);
 
+    // 工具栏
     $('btn-paper-lined').addEventListener('click', function () { setPaperStyle('lined'); });
     $('btn-paper-grid').addEventListener('click', function () { setPaperStyle('grid'); });
     $('btn-color-white').addEventListener('click', function () { setPaperColor('white'); });
@@ -512,39 +505,33 @@
     $('btn-zoom-out').addEventListener('click', function () { setZoom(-0.1); });
     $('btn-zoom-in').addEventListener('click', function () { setZoom(0.1); });
 
+    // 翻页
     $('btn-prev-page').addEventListener('click', function () { flipPage(-1); });
     $('btn-next-page').addEventListener('click', function () { flipPage(1); });
     $('btn-break-page').addEventListener('click', function () { insertPageBreak(); });
+    var delBtn = $('btn-delete-page');
+    if (delBtn) delBtn.addEventListener('click', function () { deleteCurrentPage(); });
 
-    // 上下章导航
+    // 上下章
     loadNeighbors();
 
+    // 参考书
     refSidebar.querySelectorAll('.ref-tab').forEach(function (tab) {
-      tab.addEventListener('click', function () {
-        switchRefTab(tab.dataset.ref);
-      });
+      tab.addEventListener('click', function () { switchRefTab(tab.dataset.ref); });
     });
-
     $('paper-stage').addEventListener('click', function (e) {
-      if (state.refOpen && e.target === this) {
-        toggleRef();
-      }
+      if (state.refOpen && e.target === this) toggleRef();
     });
-
     $('paper-stage').addEventListener('wheel', function (e) {
-      if (e.ctrlKey) {
-        e.preventDefault();
-        setZoom(e.deltaY < 0 ? 0.1 : -0.1);
-      }
+      if (e.ctrlKey) { e.preventDefault(); setZoom(e.deltaY < 0 ? 0.1 : -0.1); }
     }, { passive: false });
 
     window.addEventListener('beforeunload', function () {
+      mergePageContent();
       if (state.dirty) saveNow();
     });
 
-    if (!textarea.value) {
-      textarea.focus();
-    }
+    if (!textarea.value) textarea.focus();
   }
 
   init();

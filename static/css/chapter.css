@@ -347,6 +347,8 @@
   font-size: 0.72rem; color: var(--text-secondary); cursor: pointer;
 }
 .paper-page-btn:hover { color: var(--text); border-color: #888; }
+.paper-delete-page-btn { color: #c07070; border-color: #e0c0c0; }
+.paper-delete-page-btn:hover { color: #a04040; border-color: #c07070; }
 
 /* ── 翻页动画 ────────────────────────────────────────────────── */
 
