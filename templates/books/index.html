@@ -207,7 +207,7 @@ window.BOOKS_DATA = [
   function searchWorldFn(w,q){var item=w.item||w;var t=((item.category||'')+' '+item.title+' '+(item.content||'')).toLowerCase();if(item.fields)item.fields.forEach(function(f){t+=' '+(f.name||'')+' '+(f.value||'');});return t.includes(q);}
   function searchPlotFn(n,q){var t=(n.title+' '+(n.time_in_story||'')+' '+(n.summary||'')+' '+(n.location||'')).toLowerCase();if(n.custom_fields)n.custom_fields.forEach(function(f){t+=' '+(f.name||'')+' '+(f.value||'');});if(n.characters)n.characters.forEach(function(c){t+=' '+(c.name||'');});return t.includes(q);}
   function getSearchBox(tab,placeholder,allItems,searchFn,renderFn){
-    if(!searchBoxes[tab]){var bar=document.createElement('div');bar.style.cssText='display:flex;align-items:center;gap:0.3rem;margin-bottom:0.5rem;';var inp=document.createElement('input');inp.type='text';inp.className='form-control form-control-sm';inp.placeholder=placeholder;inp.style.cssText='max-width:220px;font-size:0.75rem;';inp.addEventListener('input',function(){currentSpread=0;renderFn(this.value.trim().toLowerCase());});bar.appendChild(inp);searchBoxes[tab]={bar:bar,inp:inp};}
+    if(!searchBoxes[tab]){var bar=document.createElement('div');bar.style.cssText='display:flex;align-items:center;gap:0.3rem;margin-bottom:0.5rem;';var inp=document.createElement('input');inp.type='text';inp.className='form-control form-control-sm';inp.placeholder=placeholder;inp.style.cssText='max-width:220px;font-size:0.75rem;';inp.addEventListener('compositionstart',function(){this._composing=true;});inp.addEventListener('compositionend',function(){this._composing=false;currentSpread=0;var self=this;var val=self.value.trim().toLowerCase();renderFn(val);self.focus();self.setSelectionRange(self.value.length,self.value.length);});inp.addEventListener('input',function(){if(this._composing)return;currentSpread=0;var self=this;var val=self.value.trim().toLowerCase();renderFn(val);self.focus();self.setSelectionRange(self.value.length,self.value.length);});bar.appendChild(inp);searchBoxes[tab]={bar:bar,inp:inp};}
     return searchBoxes[tab].bar;
   }
 
@@ -255,8 +255,10 @@ window.BOOKS_DATA = [
 
   // ═══════════ 时间线 ═══════════
   function renderPlot(searchQ) {
+    var sq = (searchQ || '').toLowerCase();
+    window.canvasState.searchQ = sq;
     var addUrl='/plots/'+currentBook.id+'/create';
-    window.renderPlotCanvas(currentBook, addUrl, pendingHL, esc, getSearchBox, searchPlotFn, (searchQ||'').toLowerCase());
+    window.renderPlotCanvas(currentBook, addUrl, pendingHL, esc, getSearchBox, searchPlotFn, sq);
   }
 
   // ═══════════ 搜索 ═══════════

@@ -25,8 +25,16 @@ window.renderPlotCanvas = function(currentBook, addUrl, pendingHL, esc, getSearc
 
   var toolbar = document.createElement('div'); toolbar.className = 'plot-canvas-toolbar';
   var ts = document.createElement('span'); ts.className = 'book-page-title'; ts.textContent = '时间线';
+  toolbar.appendChild(ts);
+  if (getSearchBox && searchPlotFn) {
+    var plotSearch = getSearchBox('plot', '搜索情节...', currentBook.plot_nodes || [], searchPlotFn, function(sq) {
+      window.canvasState.searchQ = sq;
+      window.renderPlotCanvas(currentBook, addUrl, 0, esc, getSearchBox, searchPlotFn, sq);
+    });
+    toolbar.appendChild(plotSearch);
+  }
   var al = document.createElement('a'); al.className = 'book-page-add'; al.href = addUrl; al.textContent = '+ 添加';
-  toolbar.appendChild(ts); toolbar.appendChild(al);
+  toolbar.appendChild(al);
   wrap.appendChild(toolbar);
 
   var ctrls = document.createElement('div'); ctrls.className = 'plot-zoom-controls';
