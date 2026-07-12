@@ -9,7 +9,9 @@
 <div class="editor-toolbar" id="editor-toolbar">
   <div class="editor-toolbar-left">
     <a href="{{ url_for('chapters.list_page', book_id=chapter.book_id) if chapter.book_id else url_for('books.index') }}" class="editor-back">&larr; 章节列表</a>
+    <a href="#" class="editor-nav-btn" id="btn-prev-chapter" title="上一章" style="display:none">◀</a>
     <span class="editor-chapter-title" id="editor-chapter-title">{{ chapter.title }}</span>
+    <a href="#" class="editor-nav-btn" id="btn-next-chapter" title="下一章" style="display:none">▶</a>
   </div>
   <div class="editor-toolbar-right">
     <div class="editor-tool-group">
@@ -70,6 +72,7 @@
       <span>页: <strong id="page-indicator">1/1</strong></span>
       <div class="paper-page-nav">
         <button class="paper-page-btn" id="btn-prev-page" title="上一页">◀</button>
+        <button class="paper-page-btn" id="btn-break-page" title="插入分页 (Ctrl+Enter)">↲</button>
         <button class="paper-page-btn" id="btn-next-page" title="下一页">▶</button>
       </div>
     </div>

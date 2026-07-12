@@ -90,6 +90,28 @@ def api_get(id):
     })
 
 
+@chapters_bp.route('/api/chapters/<int:id>/neighbors')
+def api_neighbors(id):
+    """返回同一本书中当前章节的前后章节 ID"""
+    chapter = Chapter.query.get_or_404(id)
+    if not chapter.book_id:
+        return jsonify({'prev': None, 'next': None})
+    # 前一章：同书 order 小于当前的最大 order
+    prev_ch = Chapter.query.filter(
+        Chapter.book_id == chapter.book_id,
+        Chapter.order < chapter.order
+    ).order_by(Chapter.order.desc()).first()
+    # 后一章：同书 order 大于当前的最小 order
+    next_ch = Chapter.query.filter(
+        Chapter.book_id == chapter.book_id,
+        Chapter.order > chapter.order
+    ).order_by(Chapter.order.asc()).first()
+    return jsonify({
+        'prev': {'id': prev_ch.id, 'title': prev_ch.title} if prev_ch else None,
+        'next': {'id': next_ch.id, 'title': next_ch.title} if next_ch else None,
+    })
+
+
 @chapters_bp.route('/api/chapters/<int:id>', methods=['PUT'])
 def api_update(id):
     """保存章节内容（自动保存）"""

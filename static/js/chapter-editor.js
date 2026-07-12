@@ -42,15 +42,43 @@
   var flipOverlay = $('page-flip-overlay');
   var flipCard = $('page-flip-card');
 
-  // ── 字数与分页 ────────────────────────────────────────────────
+  // ── 字数与分页（支持 \\f 手动分页符） ─────────────────────────
+
+  // 把内容拆成段：先按 \\f 切开，每段至少占 1 页，长段再按字数分页
+  function getPageSegments() {
+    var text = textarea.value || '';
+    var chunks = text.split('\f');
+    var segments = []; // [{start, end, pageInChunk, globalPage}]
+    var cp = state.charsPerPage;
+    var globalPage = 1;
+
+    chunks.forEach(function (chunk) {
+      var chunkStart = segments.length > 0 ? segments[segments.length - 1].end + 1 : 0;
+      // +1 for the \f separator
+      var subPages = Math.ceil(chunk.length / cp) || 1;
+      for (var p = 0; p < subPages; p++) {
+        segments.push({
+          start: chunkStart + p * cp,
+          end: Math.min(chunkStart + (p + 1) * cp, chunkStart + chunk.length),
+          pageInChunk: p + 1,
+          globalPage: globalPage++,
+          isBreak: false,
+        });
+      }
+      // 每个 chunk 之后有一个隐式的分页标记（\f）
+      chunkStart += chunk.length;
+    });
+
+    return segments;
+  }
 
   function updateStats() {
     var text = textarea.value || '';
     var len = text.length;
     wordCountEl.textContent = len;
 
-    var cp = state.charsPerPage;
-    state.totalPages = Math.max(1, Math.ceil(len / cp));
+    var segments = getPageSegments();
+    state.totalPages = segments.length || 1;
     if (state.currentPage > state.totalPages) state.currentPage = state.totalPages;
     pageIndicator.textContent = state.currentPage + '/' + state.totalPages;
 
@@ -61,7 +89,9 @@
   }
 
   function getPageStart(pageNum) {
-    return (pageNum - 1) * state.charsPerPage;
+    var segs = getPageSegments();
+    var seg = segs[pageNum - 1];
+    return seg ? seg.start : 0;
   }
 
   function scrollToPage(pageNum) {
@@ -80,6 +110,18 @@
     var padding = parseInt(getComputedStyle(textarea).paddingTop) || 64;
     var lines = text.substring(0, start).split('\n').length - 1;
     textarea.scrollTop = lines * lineHeight - padding;
+  }
+
+  // 插入手动分页符
+  function insertPageBreak() {
+    var ta = textarea;
+    var pos = ta.selectionStart;
+    var text = ta.value;
+    ta.value = text.substring(0, pos) + '\f' + text.substring(pos);
+    ta.selectionStart = ta.selectionEnd = pos + 1;
+    ta.focus();
+    updateStats();
+    autoSave();
   }
 
   // ── 翻页动画 ──────────────────────────────────────────────────
@@ -400,12 +442,38 @@
     return d.innerHTML;
   }
 
+  // ── 上下章导航 ──────────────────────────────────────────────
+
+  function loadNeighbors() {
+    fetch('/api/chapters/' + chapterId + '/neighbors')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        var prevBtn = $('btn-prev-chapter');
+        var nextBtn = $('btn-next-chapter');
+        if (data.prev) {
+          prevBtn.href = '/chapters/' + data.prev.id + '/write';
+          prevBtn.title = '上一章：' + data.prev.title;
+          prevBtn.style.display = '';
+        }
+        if (data.next) {
+          nextBtn.href = '/chapters/' + data.next.id + '/write';
+          nextBtn.title = '下一章：' + data.next.title;
+          nextBtn.style.display = '';
+        }
+      });
+  }
+
   // ── 键盘快捷键 ────────────────────────────────────────────────
 
   function onKeydown(e) {
     if ((e.ctrlKey || e.metaKey) && e.key === 's') {
       e.preventDefault();
       saveNow();
+    }
+    // Ctrl+Enter → 插入分页符
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      insertPageBreak();
     }
     // Esc → 如果在看参考书详情，先返回列表；否则关闭参考书
     if (e.key === 'Escape') {
@@ -446,6 +514,10 @@
 
     $('btn-prev-page').addEventListener('click', function () { flipPage(-1); });
     $('btn-next-page').addEventListener('click', function () { flipPage(1); });
+    $('btn-break-page').addEventListener('click', function () { insertPageBreak(); });
+
+    // 上下章导航
+    loadNeighbors();
 
     refSidebar.querySelectorAll('.ref-tab').forEach(function (tab) {
       tab.addEventListener('click', function () {
