@@ -259,7 +259,16 @@ a:hover { color: #000; }
 .shelf-spine:hover { transform: translateY(-5px); box-shadow: var(--shadow-md); z-index: 3; }
 .shelf-spine.active { outline: 2px solid #333; outline-offset: 2px; z-index: 4; }
 .shelf-spine.drag-over { outline: 2px dashed #888; outline-offset: 2px; }
+.shelf-spine.drag-before { outline: 2px dashed #888; outline-offset: 2px; box-shadow: -4px 0 0 #888; }
 .shelf-spine.dragging { opacity: 0.5; transform: scale(0.95); }
+
+/* 空行提示与删除 */
+.shelf-empty-hint { font-size: 0.7rem; color: #ccc; margin-right: 0.5rem; align-self: center; }
+.shelf-row-delete {
+  background: none; border: none; color: #ccc; font-size: 1rem;
+  cursor: pointer; padding: 0 0.3rem; align-self: center; line-height: 1;
+}
+.shelf-row-delete:hover { color: #999; }
 
 /* 右键菜单切换颜色提示 */
 .shelf-spine-color-hint {
