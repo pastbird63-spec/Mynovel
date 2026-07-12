@@ -15,7 +15,8 @@ class Book(db.Model):
     characters = db.relationship('Character', backref='book', lazy=True)
     plot_nodes = db.relationship('PlotNode', backref='book', lazy=True,
                                  order_by='PlotNode.order')
-    
+    chapters = db.relationship('Chapter', backref='book', lazy=True,
+                               order_by='Chapter.order', cascade='all, delete-orphan')
 
 
 class Character(db.Model):
@@ -125,3 +126,16 @@ class WorldSettingField(db.Model):
     setting_id = db.Column(db.Integer, db.ForeignKey('world_settings.id'), nullable=False)
     field_name = db.Column(db.String(100), nullable=False)
     field_value = db.Column(db.Text)
+
+
+class Chapter(db.Model):
+    __tablename__ = 'chapters'
+    id = db.Column(db.Integer, primary_key=True)
+    book_id = db.Column(db.Integer, db.ForeignKey('books.id'), nullable=True)
+    title = db.Column(db.String(200), nullable=False)
+    content = db.Column(db.Text, default='')
+    order = db.Column(db.Integer, default=0)
+    paper_style = db.Column(db.String(20), default='lined')
+    paper_color = db.Column(db.String(20), default='cream')
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

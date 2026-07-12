@@ -1,0 +1,26 @@
+{% extends 'base.html' %}
+{% block title %}{{ book.title }} · 章节{% endblock %}
+{% block content %}
+
+<div class="chapter-list-container">
+  <div class="chapter-list-header">
+    <a href="{{ url_for('books.index', book_id=book.id) }}" class="chapter-back">&larr; 返回书架</a>
+    <h1>{{ book.title }}</h1>
+    <button class="btn btn-primary" id="btn-new-chapter">＋ 新建章节</button>
+  </div>
+
+  <div class="chapter-items" id="chapter-items">
+    <div class="chapter-empty-state" id="chapter-empty">
+      <p>还没有章节，点击「新建章节」开始写作</p>
+    </div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+window.CHAPTER_BOOK_ID = {{ book.id }};
+</script>
+<script src="{{ url_for('static', filename='js/chapter-list.js') }}"></script>
+{% endblock %}
