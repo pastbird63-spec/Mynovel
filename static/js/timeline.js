@@ -1,9 +1,44 @@
-window.canvasState = { scale: 1, ox: 40, oy: 40, collapsed: {} };
+window.canvasState = { scale: 1, ox: 40, oy: 40, collapsed: {}, searchQ: '', _lastFp: '' };
 
 window.renderPlotCanvas = function(currentBook, addUrl, pendingHL, esc, getSearchBox, searchPlotFn, searchQ) {
-  var allNodes = (currentBook.plot_nodes || []).slice().sort(function(a,b){ return a.order - b.order; });
+  var rawNodes = (currentBook.plot_nodes || []).slice().sort(function(a,b){ return a.order - b.order; });
   var q = (searchQ || '').toLowerCase();
-  if (q) allNodes = allNodes.filter(function(n){ return searchPlotFn(n, q); });
+
+  // ── 结构指纹：相同结构 = 只改搜索词，可以增量更新 ──
+  var fp = rawNodes.map(function(n){ return n.id + ':' + (n.parent_id || 0); }).join(',') + '|c:' +
+    Object.keys(window.canvasState.collapsed).filter(function(k){ return window.canvasState.collapsed[k]; }).sort().join(',');
+
+  if (fp === window.canvasState._lastFp) {
+    var existingWrap = document.getElementById('plot-canvas-wrap');
+    if (existingWrap) {
+      var filteredIds = null;
+      if (q) {
+        filteredIds = new Set();
+        rawNodes.filter(function(n){ return searchPlotFn(n, q); }).forEach(function(n){ filteredIds.add(n.id); });
+      }
+      existingWrap.querySelectorAll('.plot-node-card').forEach(function(card) {
+        var nid = parseInt(card.getAttribute('data-node-id'));
+        card.style.display = (filteredIds && !filteredIds.has(nid)) ? 'none' : '';
+      });
+      // SVG lines 跟随 connected nodes 的可见性
+      var svg = existingWrap.querySelector('.plot-svg');
+      if (svg) {
+        svg.querySelectorAll('path').forEach(function(p) { p.style.display = ''; });
+      }
+      window.canvasState._lastSearchQ = q;
+      if (pendingHL) {
+        setTimeout(function(){
+          var el = existingWrap.querySelector('[data-node-id="'+pendingHL+'"]');
+          if (el) { el.classList.add('highlight-flash'); el.style.display = ''; }
+        }, 300);
+      }
+      return;
+    }
+  }
+
+  // ═══════════ 完整重建 ═══════════
+  window.canvasState._lastFp = fp;
+  var allNodes = q ? rawNodes.filter(function(n){ return searchPlotFn(n, q); }) : rawNodes.slice();
   var roots = allNodes.filter(function(n){ return !n.parent_id; });
   var childMap = {};
   allNodes.forEach(function(n){ if (n.parent_id) { if (!childMap[n.parent_id]) childMap[n.parent_id] = []; childMap[n.parent_id].push(n); } });
@@ -47,7 +82,6 @@ window.renderPlotCanvas = function(currentBook, addUrl, pendingHL, esc, getSearc
     window.addPagination(1); return;
   }
 
-  var GAP_X = 210;
   var positions = [60];
   roots.forEach(function(root, i){
     var cc = (childMap[root.id] || []).length;
