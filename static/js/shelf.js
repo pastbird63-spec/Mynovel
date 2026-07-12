@@ -30,7 +30,8 @@ function renderShelf(filter) {
   c.innerHTML = h;
   c.querySelectorAll('.shelf-spine').forEach(function (sp) {
     sp.addEventListener('click', function () {
-      var bk = DATA.find(function (b) { return b.id === parseInt(this.dataset.bookId); });
+      var self = this;
+      var bk = DATA.find(function (b) { return b.id === parseInt(self.dataset.bookId); });
       if (bk) openBook(bk);
     });
     sp.addEventListener('contextmenu', function (e) { e.preventDefault(); cycleColor(this); });
