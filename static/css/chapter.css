@@ -310,7 +310,7 @@
 .paper-textarea {
   display: block; width: 100%; flex: 1;
   border: none; outline: none; resize: none;
-  padding: 64px 72px 64px 72px;
+  padding: 43px 72px 64px 72px;
   font-family: var(--font-serif); font-size: 18px;
   color: var(--text);
   background: transparent;
@@ -381,7 +381,7 @@
 
 @media (max-width: 900px) {
   .paper-sheet { width: 95%; aspect-ratio: 1 / 1.414; }
-  .paper-textarea { padding: 40px 32px; font-size: 15px; }
+  .paper-textarea { padding: 32px 32px 40px 32px; font-size: 15px; }
   .paper-stage { padding: 0.8rem; }
   .ref-panel { width: 220px; }
   @keyframes refSlideIn {
