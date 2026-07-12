@@ -31,8 +31,6 @@ window.BOOKS_DATA = [
     <a class="book-back" id="btn-back" href="#">&larr; 书架</a>
     <span class="book-topbar-title" id="book-topbar-title"></span>
     <span style="flex:1"></span>
-    <input type="text" class="form-control form-control-sm" id="book-search-input" placeholder="搜索人物/时间线/世界观..." style="max-width:240px;font-size:0.75rem;">
-    <span id="book-search-info" style="font-size:0.7rem;color:#666;white-space:nowrap;margin-left:0.3rem;"></span>
     <a href="#" id="btn-edit-book" class="btn btn-sm btn-outline-secondary">编辑</a>
   </div>
   <div class="open-book-wrap">
@@ -87,19 +85,6 @@ window.BOOKS_DATA = [
     }
     document.getElementById('shelf-search').addEventListener('input', onSearch);
     document.getElementById('shelf-search').addEventListener('keydown', function(e){ if(e.key==='Escape'){this.value='';onSearch();} });
-    // 固定搜索框（书本内）
-    var bookSearch = document.getElementById('book-search-input');
-    bookSearch.addEventListener('input', function() {
-      var q = this.value.trim().toLowerCase();
-      document.getElementById('book-search-info').textContent = '';
-      currentSpread = 0;
-      if (currentTab === 'char') renderChars();
-      else if (currentTab === 'world') renderWorld();
-      else if (currentTab === 'plot') renderPlot(q);
-    });
-    bookSearch.addEventListener('keydown', function(e) {
-      if (e.key === 'Escape') { this.value = ''; document.getElementById('book-search-info').textContent = ''; currentSpread = 0; renderContent(); }
-    });
   }
   function saveRows(){ localStorage.setItem(LS_ROWS, JSON.stringify(rows)); }
   function saveColors(){ localStorage.setItem(LS_COLORS, JSON.stringify(spineColors)); }
@@ -155,15 +140,13 @@ window.BOOKS_DATA = [
     document.querySelector('#page-tabs [data-tab="'+currentTab+'"]').classList.add('active');
     document.getElementById('book-topbar-title').textContent=book.title;
     document.getElementById('btn-edit-book').href='/books/'+book.id+'/edit';
-    document.getElementById('book-search-input').value='';
-    document.getElementById('book-search-info').textContent='';
     document.getElementById('shelf-view').style.display='none';
     document.getElementById('book-view').style.display='block';
     renderContent(); window.scrollTo(0,0); localStorage.setItem(LS_OPEN, book.id);
   }
   function closeBook() {
     currentBook=null; document.getElementById('shelf-view').style.display=''; document.getElementById('book-view').style.display='none';
-        window.scrollTo(0,0); localStorage.removeItem(LS_OPEN);
+    window.scrollTo(0,0); localStorage.removeItem(LS_OPEN);
   }
   document.getElementById('btn-back').addEventListener('click',function(e){e.preventDefault();closeBook();});
   document.querySelectorAll('#page-tabs .page-tab').forEach(tab=>{
@@ -216,33 +199,36 @@ window.BOOKS_DATA = [
   }
 
   // ═══════════ 人物 ═══════════
-  function renderChars() {
-    var q = document.getElementById('book-search-input').value.trim().toLowerCase();
+  function renderChars(searchQ) {
+    var q = (searchQ || '').toLowerCase();
     const key=LS_CHAR_ORDER+currentBook.id;
     let chars=getOrdered([...currentBook.characters],key);
     if (q) chars = chars.filter(function(c){ return searchCharsFn(c, q); });
     const addUrl='/characters/create?book_id='+currentBook.id;
     const L=document.getElementById('page-left-content'), R=document.getElementById('page-right-content');
-    document.getElementById('book-search-info').textContent = q ? '搜到 '+chars.length+' 条' : '';
-        // 标题
+    const origChars = getOrdered([...currentBook.characters], key);
+    const searchBox = getSearchBox('char', '搜索人物...', origChars, searchCharsFn, renderChars);
+    // 标题
     var leftHtml = '<div class="book-page-title">'+(currentSpread===0?'人物':'')+'</div>';
     if (currentSpread===0) leftHtml += '<a href="'+addUrl+'" class="book-page-add">+ 添加</a>';
     // 搜索框在标题下面
-    leftHtml += '';
+    leftHtml += '<div id="char-search-slot"></div>';
     if (chars.length===0) {
       leftHtml += '<p style="color:#999;font-size:0.82rem;">'+(q?'没有匹配项':'暂无人物')+'</p>';
       L.innerHTML=leftHtml; R.innerHTML='';
-            addPagination(1); return;
+      document.getElementById('char-search-slot').appendChild(searchBox);
+      addPagination(1); return;
     }
     if (pendingHL) { const idx=chars.findIndex(c=>c.id===pendingHL); if(idx>=0) currentSpread=Math.floor(idx/(PP*2)); }
     const totalSpreads=Math.ceil(chars.length/(PP*2));
     if(currentSpread>=totalSpreads)currentSpread=totalSpreads-1;
     const start=currentSpread*PP*2, pageItems=chars.slice(start,start+PP*2);
-    leftHtml += buildTarot(pageItems.slice(0,PP),currentSpread===0?'人物':'',currentSpread===0?addUrl:'');
+    leftHtml += buildTarot(pageItems.slice(0,PP),'','');
     L.innerHTML=leftHtml; R.innerHTML=buildTarot(pageItems.slice(PP),'','');
-        addPagination(totalSpreads);
+    document.getElementById('char-search-slot').appendChild(searchBox);
+    addPagination(totalSpreads);
     if (pendingHL) { setTimeout(()=>{const el=document.querySelector('.tarot-card[data-id="'+pendingHL+'"]');if(el){el.classList.add('highlight-flash');el.scrollIntoView({behavior:'smooth',block:'center'});}pendingHL=0;},200); }
-    [L,R].forEach(el=>makeDraggable(el,chars,key,renderChars));
+    [L,R].forEach(el=>makeDraggable(el,chars,key,function(){ renderChars(q); }));
   }
   function buildTarot(items, title, addUrl) {
     let h=''; if(title)h+='<div class="book-page-title">'+title+'</div>'; if(addUrl)h+='<a href="'+addUrl+'" class="book-page-add">+ 添加</a>';
@@ -255,62 +241,41 @@ window.BOOKS_DATA = [
   }
 
   // ═══════════ 时间线 ═══════════
-  function renderPlot() {
+  function renderPlot(searchQ) {
     var addUrl='/plots/'+currentBook.id+'/create';
-    var sq=document.getElementById('book-search-input').value.trim().toLowerCase(); window.renderPlotCanvas(currentBook, addUrl, pendingHL, esc, getSearchBox, searchPlotFn, sq);
+    window.renderPlotCanvas(currentBook, addUrl, pendingHL, esc, getSearchBox, searchPlotFn, (searchQ||'').toLowerCase());
   }
 
   // ═══════════ 搜索 ═══════════
-  function searchCharsFn(item,q){ var t=(item.name+' '+(item.alias||'')+' '+(item.description||'')+' '+(item.age||'')+' '+(item.gender||'')).toLowerCase(); if(item.custom_fields)item.custom_fields.forEach(function(f){t+=' '+(f.name||'')+' '+(f.value||'');}); return t.includes(q); }
-  function searchWorldFn(w,q){ var item=w.item||w; var t=((item.category||'')+' '+item.title+' '+(item.content||'')).toLowerCase(); if(item.fields)item.fields.forEach(function(f){t+=' '+(f.name||'')+' '+(f.value||'');}); return t.includes(q); }
-  function searchPlotFn(item,q){ var t=(item.title+' '+(item.time_in_story||'')+' '+(item.summary||'')+' '+(item.location||'')).toLowerCase(); if(item.custom_fields)item.custom_fields.forEach(function(f){t+=' '+(f.name||'')+' '+(f.value||'');}); if(item.characters)item.characters.forEach(function(c){t+=' '+(c.name||'');}); return t.includes(q); }
-  var searchBoxes = {};
-  function getSearchBox(tab, placeholder, allItems, searchFn, renderFn) {
-    if (!searchBoxes[tab]) {
-      var bar = document.createElement('div'); bar.style.cssText = 'display:flex;align-items:center;gap:0.3rem;margin-bottom:0.5rem;';
-      var inp = document.createElement('input'); inp.type='text'; inp.className='form-control form-control-sm'; inp.placeholder=placeholder; inp.style.cssText='max-width:220px;font-size:0.75rem;';
-      var info = document.createElement('span'); info.style.cssText = 'font-size:0.7rem;color:#999;white-space:nowrap;';
-      var clr = document.createElement('button'); clr.type='button'; clr.textContent='x'; clr.style.cssText = 'border:none;background:none;font-size:1rem;color:#bbb;cursor:pointer;padding:0 0.2rem;display:none;';
-      clr.addEventListener('click',function(){ inp.value=''; info.textContent=''; clr.style.display='none'; currentSpread=0; renderFn(''); });
-      inp.addEventListener('input', function() { var q=this.value.trim().toLowerCase(); clr.style.display=q?'':'none'; currentSpread=0; info.textContent=q?'搜到 '+allItems.filter(function(i){return searchFn(i,q);}).length+' 条':''; renderFn(q); });
-      bar.appendChild(inp); bar.appendChild(info); bar.appendChild(clr);
-      searchBoxes[tab] = { bar:bar, inp:inp, info:info, clr:clr };
-    }
-    var sb = searchBoxes[tab]; var q = sb.inp.value.trim().toLowerCase();
-    if (q) { sb.clr.style.display=''; sb.info.textContent='搜到 '+allItems.filter(function(i){return searchFn(i,q);}).length+' 条'; }
-    // 重挂载后保持焦点和光标位置
-    var pos = sb.inp.selectionStart;
-    setTimeout(function(){ sb.inp.focus(); sb.inp.setSelectionRange(pos, pos); }, 0);
-    return sb.bar;
-  }
-
-  function renderWorld() {
-    var q = document.getElementById('book-search-input').value.trim().toLowerCase();
+  function renderWorld(searchQ) {
+    var q = (searchQ || '').toLowerCase();
     const key=LS_WORLD_ORDER+currentBook.id;
     let settings=getOrdered([...currentBook.world_settings],key);
     if (q) settings = settings.filter(function(s){ return searchWorldFn({item:s}, q); });
     const addUrl='/world/create?book_id='+currentBook.id;
     const L=document.getElementById('page-left-content'), R=document.getElementById('page-right-content');
-    document.getElementById('book-search-info').textContent = q ? '搜到 '+chars.length+' 条' : '';
     const grp={}; settings.forEach(s=>{if(!grp[s.category])grp[s.category]=[];grp[s.category].push(s);});
     const flat=[]; Object.keys(grp).forEach(cat=>{grp[cat].forEach(s=>flat.push({cat,item:s}));});
-        var leftHtml = '<div class="book-page-title">'+(currentSpread===0?'世界观':'')+'</div>';
+    const searchBox = getSearchBox('world', '搜索设定...', settings, searchWorldFn, renderWorld);
+    var leftHtml = '<div class="book-page-title">'+(currentSpread===0?'世界观':'')+'</div>';
     if (currentSpread===0) leftHtml += '<a href="'+addUrl+'" class="book-page-add">+ 添加</a>';
-    leftHtml += '';
+    leftHtml += '<div id="world-search-slot"></div>';
     if (settings.length===0) {
       leftHtml += '<p style="color:#999;font-size:0.82rem;">'+(q?'没有匹配项':'暂无设定')+'</p>';
       L.innerHTML=leftHtml; R.innerHTML='';
-            addPagination(1); return;
+      document.getElementById('world-search-slot').appendChild(searchBox);
+      addPagination(1); return;
     }
     if (pendingHL) { const idx=flat.findIndex(x=>x.item.id===pendingHL); if(idx>=0)currentSpread=Math.floor(idx/(PP*2)); }
     const totalSpreads=Math.ceil(flat.length/(PP*2));
     if(currentSpread>=totalSpreads)currentSpread=totalSpreads-1;
     const start=currentSpread*PP*2, pageItems=flat.slice(start,start+PP*2);
-    leftHtml += buildWorldPanel(pageItems.slice(0,PP),currentSpread===0?'世界观':'',currentSpread===0?addUrl:'');
+    leftHtml += buildWorldPanel(pageItems.slice(0,PP),'','');
     L.innerHTML=leftHtml; R.innerHTML=buildWorldPanel(pageItems.slice(PP),'','');
-        addPagination(totalSpreads);
+    document.getElementById('world-search-slot').appendChild(searchBox);
+    addPagination(totalSpreads);
     if (pendingHL) { setTimeout(()=>{const el=document.querySelector('.world-item[data-id="'+pendingHL+'"]');if(el){el.classList.add('highlight-flash');el.scrollIntoView({behavior:'smooth',block:'center'});}pendingHL=0;},200); }
-    [L,R].forEach(el=>makeDraggable(el,settings,key,renderWorld));
+    [L,R].forEach(el=>makeDraggable(el,settings,key,function(){ renderWorld(q); }));
   }
   function buildWorldPanel(items, title, addUrl) {
     if(items.length===0)return'';
