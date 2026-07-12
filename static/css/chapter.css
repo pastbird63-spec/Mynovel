@@ -254,7 +254,8 @@
 }
 
 .paper-sheet {
-  width: 680px; min-height: 520px;
+  width: 720px;
+  aspect-ratio: 1 / 1.414;  /* A5 比例 */
   background-color: var(--paper);
   box-shadow: var(--shadow-md);
   position: relative; overflow: hidden;
@@ -301,7 +302,7 @@
 /* ── 书写区域（textarea） ────────────────────────────────────── */
 
 .paper-textarea {
-  display: block; width: 100%; min-height: 520px; flex: 1;
+  display: block; width: 100%; flex: 1;
   border: none; outline: none; resize: none;
   padding: 64px 72px 64px 72px;
   font-family: var(--font-serif); font-size: 16px;
@@ -344,7 +345,7 @@
   perspective: 1200px;
 }
 .page-flip-card {
-  position: absolute; width: 680px; height: 880px;
+  position: absolute; width: 720px; height: 1018px;
   transform-style: preserve-3d;
   transition: transform 0.6s ease-in-out;
 }
@@ -373,8 +374,8 @@
 /* ── 响应式 ──────────────────────────────────────────────────── */
 
 @media (max-width: 900px) {
-  .paper-sheet { width: 100%; min-height: 600px; }
-  .paper-textarea { padding: 40px 24px; min-height: 600px; }
+  .paper-sheet { width: 95%; aspect-ratio: 1 / 1.414; }
+  .paper-textarea { padding: 40px 32px; font-size: 15px; }
   .paper-stage { padding: 0.8rem; }
   .ref-panel { width: 220px; }
   @keyframes refSlideIn {
@@ -388,8 +389,8 @@
   .editor-toolbar { gap: 0.3rem; }
   .editor-tool-group { border: none; }
   .editor-tool-btn { padding: 0.2rem 0.4rem; font-size: 0.65rem; }
-  .paper-textarea { padding: 32px 16px; font-size: 14px; min-height: 500px; }
-  .paper-sheet { min-height: 500px; }
+  .paper-sheet { width: 100%; aspect-ratio: auto; min-height: 520px; }
+  .paper-textarea { padding: 32px 16px; font-size: 14px; }
   .ref-sidebar:not(.expanded) { width: 22px; }
   .ref-tab { font-size: 0.62rem; padding: 0.4rem 0.15rem; }
 }
