@@ -31,8 +31,6 @@ window.BOOKS_DATA = [
     <a class="book-back" id="btn-back" href="#">&larr; 书架</a>
     <span class="book-topbar-title" id="book-topbar-title"></span>
     <span style="flex:1"></span>
-    <input type="text" class="form-control form-control-sm" id="book-search" placeholder="搜索..." style="max-width:200px;font-size:0.75rem;">
-    <span id="book-search-info" style="font-size:0.7rem;color:#999;"></span>
     <a href="#" id="btn-edit-book" class="btn btn-sm btn-outline-secondary">编辑</a>
   </div>
   <div class="open-book-wrap">
@@ -87,9 +85,6 @@ window.BOOKS_DATA = [
     }
     document.getElementById('shelf-search').addEventListener('input', onSearch);
     document.getElementById('shelf-search').addEventListener('keydown', function(e){ if(e.key==='Escape'){this.value='';onSearch();} });
-    var bs = document.getElementById('book-search');
-    bs.addEventListener('input', function() { currentSpread=0; if(currentBook) renderContent(); });
-    bs.addEventListener('keydown', function(e) { if(e.key==='Escape'){this.value='';currentSpread=0;if(currentBook)renderContent();} });
   }
   function saveRows(){ localStorage.setItem(LS_ROWS, JSON.stringify(rows)); }
   function saveColors(){ localStorage.setItem(LS_COLORS, JSON.stringify(spineColors)); }
@@ -204,35 +199,36 @@ window.BOOKS_DATA = [
   }
 
   // ═══════════ 人物 ═══════════
-  function _searchChars(c,q){var t=(c.name+' '+(c.alias||'')+' '+(c.description||'')+' '+(c.age||'')+' '+(c.gender||'')).toLowerCase();if(c.custom_fields)c.custom_fields.forEach(function(f){t+=' '+(f.name||'')+' '+(f.value||'');});return t.includes(q);}
-  function _searchWorld(w,q){var item=w.item||w;var t=((item.category||'')+' '+item.title+' '+(item.content||'')).toLowerCase();if(item.fields)item.fields.forEach(function(f){t+=' '+(f.name||'')+' '+(f.value||'');});return t.includes(q);}
-  function _searchPlot(n,q){var t=(n.title+' '+(n.time_in_story||'')+' '+(n.summary||'')+' '+(n.location||'')).toLowerCase();if(n.custom_fields)n.custom_fields.forEach(function(f){t+=' '+(f.name||'')+' '+(f.value||'');});if(n.characters)n.characters.forEach(function(c){t+=' '+(c.name||'');});return t.includes(q);}
-  function renderChars() {
-    var q=document.getElementById("book-search").value.trim().toLowerCase();
+  function renderChars(searchQ) {
+    var q = (searchQ || '').toLowerCase();
     const key=LS_CHAR_ORDER+currentBook.id;
     let chars=getOrdered([...currentBook.characters],key);
-    if (q) chars = chars.filter(function(c){ return _searchChars(c,q); });
+    if (q) chars = chars.filter(function(c){ return searchCharsFn(c, q); });
     const addUrl='/characters/create?book_id='+currentBook.id;
     const L=document.getElementById('page-left-content'), R=document.getElementById('page-right-content');
-    document.getElementById("book-search-info").textContent=q?"搜到 "+chars.length+" 条":"";
+    const origChars = getOrdered([...currentBook.characters], key);
+    const searchBox = getSearchBox('char', '搜索人物...', origChars, searchCharsFn, renderChars);
     // 标题
     var leftHtml = '<div class="book-page-title">'+(currentSpread===0?'人物':'')+'</div>';
     if (currentSpread===0) leftHtml += '<a href="'+addUrl+'" class="book-page-add">+ 添加</a>';
     // 搜索框在标题下面
+    leftHtml += '<div id="char-search-slot"></div>';
     if (chars.length===0) {
       leftHtml += '<p style="color:#999;font-size:0.82rem;">'+(q?'没有匹配项':'暂无人物')+'</p>';
       L.innerHTML=leftHtml; R.innerHTML='';
+      document.getElementById('char-search-slot').appendChild(searchBox);
       addPagination(1); return;
     }
     if (pendingHL) { const idx=chars.findIndex(c=>c.id===pendingHL); if(idx>=0) currentSpread=Math.floor(idx/(PP*2)); }
     const totalSpreads=Math.ceil(chars.length/(PP*2));
     if(currentSpread>=totalSpreads)currentSpread=totalSpreads-1;
     const start=currentSpread*PP*2, pageItems=chars.slice(start,start+PP*2);
-    leftHtml += buildTarot(pageItems.slice(0,PP),currentSpread===0?'人物':'',currentSpread===0?addUrl:'');
+    leftHtml += buildTarot(pageItems.slice(0,PP),'','');
     L.innerHTML=leftHtml; R.innerHTML=buildTarot(pageItems.slice(PP),'','');
+    document.getElementById('char-search-slot').appendChild(searchBox);
     addPagination(totalSpreads);
     if (pendingHL) { setTimeout(()=>{const el=document.querySelector('.tarot-card[data-id="'+pendingHL+'"]');if(el){el.classList.add('highlight-flash');el.scrollIntoView({behavior:'smooth',block:'center'});}pendingHL=0;},200); }
-    [L,R].forEach(el=>makeDraggable(el,chars,key,renderChars));
+    [L,R].forEach(el=>makeDraggable(el,chars,key,function(){ renderChars(q); }));
   }
   function buildTarot(items, title, addUrl) {
     let h=''; if(title)h+='<div class="book-page-title">'+title+'</div>'; if(addUrl)h+='<a href="'+addUrl+'" class="book-page-add">+ 添加</a>';
@@ -245,38 +241,41 @@ window.BOOKS_DATA = [
   }
 
   // ═══════════ 时间线 ═══════════
-  function renderPlot() {
+  function renderPlot(searchQ) {
     var addUrl='/plots/'+currentBook.id+'/create';
-    window.renderPlotCanvas(currentBook, addUrl, pendingHL, esc, getSearchBox, _searchPlot, q);
+    window.renderPlotCanvas(currentBook, addUrl, pendingHL, esc, getSearchBox, searchPlotFn, (searchQ||'').toLowerCase());
   }
 
   // ═══════════ 搜索 ═══════════
-  function renderWorld() {
-    var q=document.getElementById("book-search").value.trim().toLowerCase();
+  function renderWorld(searchQ) {
+    var q = (searchQ || '').toLowerCase();
     const key=LS_WORLD_ORDER+currentBook.id;
     let settings=getOrdered([...currentBook.world_settings],key);
-    if (q) settings = settings.filter(function(s){ return _searchWorld({item:s},q); });
+    if (q) settings = settings.filter(function(s){ return searchWorldFn({item:s}, q); });
     const addUrl='/world/create?book_id='+currentBook.id;
     const L=document.getElementById('page-left-content'), R=document.getElementById('page-right-content');
-    document.getElementById("book-search-info").textContent=q?"搜到 "+chars.length+" 条":"";
     const grp={}; settings.forEach(s=>{if(!grp[s.category])grp[s.category]=[];grp[s.category].push(s);});
     const flat=[]; Object.keys(grp).forEach(cat=>{grp[cat].forEach(s=>flat.push({cat,item:s}));});
+    const searchBox = getSearchBox('world', '搜索设定...', settings, searchWorldFn, renderWorld);
     var leftHtml = '<div class="book-page-title">'+(currentSpread===0?'世界观':'')+'</div>';
     if (currentSpread===0) leftHtml += '<a href="'+addUrl+'" class="book-page-add">+ 添加</a>';
+    leftHtml += '<div id="world-search-slot"></div>';
     if (settings.length===0) {
       leftHtml += '<p style="color:#999;font-size:0.82rem;">'+(q?'没有匹配项':'暂无设定')+'</p>';
       L.innerHTML=leftHtml; R.innerHTML='';
+      document.getElementById('world-search-slot').appendChild(searchBox);
       addPagination(1); return;
     }
     if (pendingHL) { const idx=flat.findIndex(x=>x.item.id===pendingHL); if(idx>=0)currentSpread=Math.floor(idx/(PP*2)); }
     const totalSpreads=Math.ceil(flat.length/(PP*2));
     if(currentSpread>=totalSpreads)currentSpread=totalSpreads-1;
     const start=currentSpread*PP*2, pageItems=flat.slice(start,start+PP*2);
-    leftHtml += buildWorldPanel(pageItems.slice(0,PP),currentSpread===0?'世界观':'',currentSpread===0?addUrl:'');
+    leftHtml += buildWorldPanel(pageItems.slice(0,PP),'','');
     L.innerHTML=leftHtml; R.innerHTML=buildWorldPanel(pageItems.slice(PP),'','');
+    document.getElementById('world-search-slot').appendChild(searchBox);
     addPagination(totalSpreads);
     if (pendingHL) { setTimeout(()=>{const el=document.querySelector('.world-item[data-id="'+pendingHL+'"]');if(el){el.classList.add('highlight-flash');el.scrollIntoView({behavior:'smooth',block:'center'});}pendingHL=0;},200); }
-    [L,R].forEach(el=>makeDraggable(el,settings,key,renderWorld));
+    [L,R].forEach(el=>makeDraggable(el,settings,key,function(){ renderWorld(q); }));
   }
   function buildWorldPanel(items, title, addUrl) {
     if(items.length===0)return'';
