@@ -62,7 +62,7 @@
     🖨 打印 / 保存为 PDF
   </button>
   &nbsp;
-  <a href="{{ url_for('books.detail', id=book.id) }}" style="color: #a8958d; font-size: 0.9rem;">← 返回书目</a>
+  <a href="{{ url_for('books.index', book_id=book.id) }}" style="color: #a8958d; font-size: 0.9rem;">← 返回书架</a>
 </div>
 
 <h1>{{ book.title }}</h1>

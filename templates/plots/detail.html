@@ -6,7 +6,7 @@
   <ol class="breadcrumb">
     <li class="breadcrumb-item"><a href="{{ url_for('books.index') }}">书架</a></li>
     {% if node.book %}
-    <li class="breadcrumb-item"><a href="{{ url_for('books.detail', id=node.book.id) }}">{{ node.book.title }}</a></li>
+    <li class="breadcrumb-item"><a href="{{ url_for('books.index', book_id=node.book.id) }}">{{ node.book.title }}</a></li>
     <li class="breadcrumb-item"><a href="{{ url_for('plots.index', book_id=node.book.id) }}">情节脉络</a></li>
     {% endif %}
     <li class="breadcrumb-item active">{{ node.title }}</li>

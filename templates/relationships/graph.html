@@ -5,7 +5,7 @@
 <nav aria-label="breadcrumb" class="mb-3">
   <ol class="breadcrumb">
     <li class="breadcrumb-item"><a href="{{ url_for('books.index') }}">书架</a></li>
-    <li class="breadcrumb-item"><a href="{{ url_for('books.detail', id=book.id) }}">{{ book.title }}</a></li>
+    <li class="breadcrumb-item"><a href="{{ url_for('books.index', book_id=book.id) }}">{{ book.title }}</a></li>
     <li class="breadcrumb-item active">关系图</li>
   </ol>
 </nav>
