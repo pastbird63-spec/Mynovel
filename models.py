@@ -137,5 +137,6 @@ class Chapter(db.Model):
     order = db.Column(db.Integer, default=0)
     paper_style = db.Column(db.String(20), default='lined')
     paper_color = db.Column(db.String(20), default='cream')
+    paper_size = db.Column(db.String(10), default='a5')
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)

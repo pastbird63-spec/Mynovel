@@ -14,6 +14,7 @@
   var state = {
     paperStyle: initData.paperStyle || 'lined',
     paperColor: initData.paperColor || 'cream',
+    paperSize: initData.paperSize || 'a5',
     zoom: 1.0,
     currentPage: 1,
     totalPages: 1,
@@ -130,6 +131,7 @@
         content: content,
         paper_style: state.paperStyle,
         paper_color: state.paperColor,
+        paper_size: state.paperSize,
       }),
     }).then(function (r) { return r.json(); })
       .then(function () { state.dirty = false; });
@@ -152,6 +154,14 @@
     paperSheet.classList.add('color-' + color);
     $('btn-color-white').classList.toggle('active', color === 'white');
     $('btn-color-cream').classList.toggle('active', color === 'cream');
+    autoSave();
+  }
+
+  function setPaperSize(size) {
+    state.paperSize = size;
+    paperSheet.classList.toggle('size-a4', size === 'a4');
+    $('btn-size-a5').classList.toggle('active', size === 'a5');
+    $('btn-size-a4').classList.toggle('active', size === 'a4');
     autoSave();
   }
 
@@ -407,6 +417,7 @@
   function init() {
     setPaperStyle(state.paperStyle);
     setPaperColor(state.paperColor);
+    setPaperSize(state.paperSize);
     paperScale.style.transform = 'scale(' + state.zoom + ')';
     updateStats();
 
@@ -421,6 +432,8 @@
     $('btn-paper-grid').addEventListener('click', function () { setPaperStyle('grid'); });
     $('btn-color-white').addEventListener('click', function () { setPaperColor('white'); });
     $('btn-color-cream').addEventListener('click', function () { setPaperColor('cream'); });
+    $('btn-size-a5').addEventListener('click', function () { setPaperSize('a5'); });
+    $('btn-size-a4').addEventListener('click', function () { setPaperSize('a4'); });
     $('btn-zoom-out').addEventListener('click', function () { setZoom(-0.1); });
     $('btn-zoom-in').addEventListener('click', function () { setZoom(0.1); });
 

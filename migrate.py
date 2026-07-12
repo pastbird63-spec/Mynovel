@@ -21,6 +21,7 @@ with app.app_context():
 
     print('正在运行数据库迁移...')
 
+    add_column_if_missing('chapters', 'paper_size', "VARCHAR(10) DEFAULT 'a5'")
     add_column_if_missing('characters', 'book_id', 'INTEGER REFERENCES books(id)')
 
     if inspector.has_table('plot_nodes'):

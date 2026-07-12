@@ -83,6 +83,7 @@ def api_get(id):
         'order': chapter.order,
         'paper_style': chapter.paper_style or 'lined',
         'paper_color': chapter.paper_color or 'cream',
+        'paper_size': chapter.paper_size or 'a5',
         'word_count': len(chapter.content or ''),
         'created_at': chapter.created_at.isoformat() if chapter.created_at else None,
         'updated_at': chapter.updated_at.isoformat() if chapter.updated_at else None,
@@ -103,6 +104,8 @@ def api_update(id):
         chapter.paper_style = data['paper_style']
     if 'paper_color' in data:
         chapter.paper_color = data['paper_color']
+    if 'paper_size' in data:
+        chapter.paper_size = data['paper_size']
 
     db.session.commit()
     return jsonify({

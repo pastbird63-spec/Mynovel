@@ -21,6 +21,10 @@
       <button class="editor-tool-btn" id="btn-color-cream" title="米黄色">■</button>
     </div>
     <div class="editor-tool-group">
+      <button class="editor-tool-btn" id="btn-size-a5" title="A5 纸">A5</button>
+      <button class="editor-tool-btn" id="btn-size-a4" title="A4 纸">A4</button>
+    </div>
+    <div class="editor-tool-group">
       <button class="editor-tool-btn" id="btn-zoom-out" title="缩小">−</button>
       <span class="editor-zoom-val" id="editor-zoom-val">100%</span>
       <button class="editor-tool-btn" id="btn-zoom-in" title="放大">+</button>
@@ -91,6 +95,7 @@ window.CHAPTER_INIT = {
   content: {{ (chapter.content or '')|tojson }},
   paperStyle: {{ (chapter.paper_style or 'lined')|tojson }},
   paperColor: {{ (chapter.paper_color or 'cream')|tojson }},
+  paperSize: {{ (chapter.paper_size or 'a5')|tojson }},
 };
 </script>
 <script src="{{ url_for('static', filename='js/chapter-editor.js') }}"></script>
