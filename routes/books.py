@@ -36,8 +36,7 @@ def create():
 
 @books_bp.route('/<int:id>')
 def detail(id):
-    book = Book.query.get_or_404(id)
-    return render_template('books/detail.html', book=book)
+    return redirect(url_for('books.index', book_id=id))
 
 
 @books_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
