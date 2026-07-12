@@ -1,0 +1,97 @@
+{% extends 'base.html' %}
+{% block title %}{{ chapter.title }} · 写作{% endblock %}
+{% block styles %}
+<link href="{{ url_for('static', filename='css/chapter.css') }}" rel="stylesheet">
+{% endblock %}
+{% block content %}
+
+{# ── 顶部工具栏 ───────────────────────────────────────────── #}
+<div class="editor-toolbar" id="editor-toolbar">
+  <div class="editor-toolbar-left">
+    <a href="{{ url_for('chapters.list_page', book_id=chapter.book_id) if chapter.book_id else url_for('books.index') }}" class="editor-back">&larr; 章节列表</a>
+    <span class="editor-chapter-title" id="editor-chapter-title">{{ chapter.title }}</span>
+  </div>
+  <div class="editor-toolbar-right">
+    <div class="editor-tool-group">
+      <button class="editor-tool-btn" id="btn-paper-lined" title="横线格">横线</button>
+      <button class="editor-tool-btn" id="btn-paper-grid" title="方格纸">方格</button>
+    </div>
+    <div class="editor-tool-group">
+      <button class="editor-tool-btn" id="btn-color-white" title="白色">□</button>
+      <button class="editor-tool-btn" id="btn-color-cream" title="米黄色">■</button>
+    </div>
+    <div class="editor-tool-group">
+      <button class="editor-tool-btn" id="btn-zoom-out" title="缩小">−</button>
+      <span class="editor-zoom-val" id="editor-zoom-val">100%</span>
+      <button class="editor-tool-btn" id="btn-zoom-in" title="放大">+</button>
+    </div>
+  </div>
+</div>
+
+{# ── 主区域：参考书 + 稿纸 ───────────────────────────────── #}
+<div class="editor-main" id="editor-main">
+
+  {# 参考书折叠标签（左侧） #}
+  <div class="ref-sidebar" id="ref-sidebar">
+    <div class="ref-tabs" id="ref-tabs">
+      <div class="ref-tab ref-tab-char active" data-ref="char" title="人物">人物</div>
+      <div class="ref-tab ref-tab-plot" data-ref="plot" title="情节">情节</div>
+      <div class="ref-tab ref-tab-world" data-ref="world" title="世界观">世界观</div>
+    </div>
+    <div class="ref-panel" id="ref-panel">
+      <div class="ref-panel-header">
+        <span class="ref-panel-title" id="ref-panel-title">人物</span>
+      </div>
+      <div class="ref-panel-body" id="ref-panel-body"></div>
+    </div>
+  </div>
+
+  {# 稿纸区域 #}
+  <div class="paper-stage" id="paper-stage">
+    <div class="paper-scale" id="paper-scale">
+      <div class="paper-sheet" id="paper-sheet">
+        <textarea
+          class="paper-textarea"
+          id="paper-textarea"
+          placeholder="开始写作..."
+          spellcheck="false"
+        >{{ chapter.content or '' }}</textarea>
+      </div>
+    </div>
+
+    {# 状态栏 #}
+    <div class="paper-status">
+      <span>字数: <strong id="word-count">0</strong></span>
+      <span>页: <strong id="page-indicator">1/1</strong></span>
+      <div class="paper-page-nav">
+        <button class="paper-page-btn" id="btn-prev-page" title="上一页">◀</button>
+        <button class="paper-page-btn" id="btn-next-page" title="下一页">▶</button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+{# ── 翻页动画叠加层 ──────────────────────────────────────── #}
+<div class="page-flip-overlay" id="page-flip-overlay">
+  <div class="page-flip-card" id="page-flip-card">
+    <div class="page-flip-front"></div>
+    <div class="page-flip-back"></div>
+  </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+window.CHAPTER_ID = {{ chapter.id }};
+window.CHAPTER_BOOK_ID = {{ chapter.book_id or 'null' }};
+window.CHAPTER_INIT = {
+  title: {{ chapter.title|tojson }},
+  content: {{ (chapter.content or '')|tojson }},
+  paperStyle: {{ (chapter.paper_style or 'lined')|tojson }},
+  paperColor: {{ (chapter.paper_color or 'cream')|tojson }},
+};
+</script>
+<script src="{{ url_for('static', filename='js/chapter-editor.js') }}"></script>
+{% endblock %}
