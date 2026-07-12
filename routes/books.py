@@ -30,7 +30,7 @@ def create():
         db.session.add(book)
         db.session.commit()
         flash(f'「{book.title}」创建成功！', 'success')
-        return redirect(url_for('books.detail', id=book.id))
+        return redirect(url_for('books.index', book_id=book.id))
     return render_template('books/create.html')
 
 
@@ -49,7 +49,7 @@ def edit(id):
         book.description = request.form.get('description', '')
         db.session.commit()
         flash(f'「{book.title}」已更新', 'success')
-        return redirect(url_for('books.detail', id=book.id))
+        return redirect(url_for('books.index', book_id=book.id))
     return render_template('books/edit.html', book=book)
 
 
