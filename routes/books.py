@@ -8,10 +8,11 @@ books_bp = Blueprint('books', __name__, url_prefix='/books')
 def index():
     books = Book.query.order_by(Book.created_at.desc()).all()
     unassigned_count = Character.query.filter_by(book_id=None).count()
-    world_data = {}
+    books_data = []
     for book in books:
-        world_data[book.id] = WorldSetting.query.filter_by(book_id=book.id).order_by(WorldSetting.category, WorldSetting.created_at.desc()).all()
-    return render_template('books/index.html', books=books, world_data=world_data, unassigned_count=unassigned_count)
+        world_settings = WorldSetting.query.filter_by(book_id=book.id).order_by(WorldSetting.category, WorldSetting.created_at.desc()).all()
+        books_data.append({'book': book, 'world_settings': world_settings})
+    return render_template('books/index.html', books_data=books_data, unassigned_count=unassigned_count)
 
 
 @books_bp.route('/create', methods=['GET', 'POST'])
