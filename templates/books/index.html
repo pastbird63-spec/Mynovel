@@ -264,6 +264,9 @@ window.BOOKS_DATA = [
     }
     var sb = searchBoxes[tab]; var q = sb.inp.value.trim().toLowerCase();
     if (q) { sb.clr.style.display=''; sb.info.textContent='搜到 '+allItems.filter(function(i){return searchFn(i,q);}).length+' 条'; }
+    // 重挂载后保持焦点和光标位置
+    var pos = sb.inp.selectionStart;
+    setTimeout(function(){ sb.inp.focus(); sb.inp.setSelectionRange(pos, pos); }, 0);
     return sb.bar;
   }
 
