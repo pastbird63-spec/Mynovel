@@ -150,8 +150,11 @@ window.BOOKS_DATA = [
   }
   document.getElementById('btn-back').addEventListener('click',function(e){e.preventDefault();closeBook();});
   document.querySelectorAll('#page-tabs .page-tab').forEach(tab=>{
-    tab.addEventListener('click',function(){ currentTab=this.dataset.tab; currentSpread=0; resetBookPages();
-      document.querySelectorAll('#page-tabs .page-tab').forEach(t=>t.classList.remove('active')); this.classList.add('active'); renderContent(); });
+    tab.addEventListener('click',function(){ currentTab=this.dataset.tab; currentSpread=0;
+      resetBookPages();
+      document.querySelectorAll('#page-tabs .page-tab').forEach(t=>t.classList.remove('active')); this.classList.add('active');
+      renderContent();
+    });
   });
   function resetBookPages() {
     const l=document.getElementById('book-page-left'), r=document.getElementById('book-page-right');
@@ -198,12 +201,7 @@ window.BOOKS_DATA = [
     });
   }
 
-  // ═══════════ 人物 ═══════════
-  function renderChars(searchQ) {
-    var q = (searchQ || '').toLowerCase();
-    const key=LS_CHAR_ORDER+currentBook.id;
-    let chars=getOrdered([...currentBook.characters],key);
-    if (q) chars = chars.filter(function(c){ return searchCharsFn(c, q); });
+  // ═══════════ 搜索辅助函数 ═══════════
   var searchBoxes={};
   function searchCharsFn(c,q){var t=(c.name+' '+(c.alias||'')+' '+(c.description||'')+' '+(c.age||'')+' '+(c.gender||'')).toLowerCase();if(c.custom_fields)c.custom_fields.forEach(function(f){t+=' '+(f.name||'')+' '+(f.value||'');});return t.includes(q);}
   function searchWorldFn(w,q){var item=w.item||w;var t=((item.category||'')+' '+item.title+' '+(item.content||'')).toLowerCase();if(item.fields)item.fields.forEach(function(f){t+=' '+(f.name||'')+' '+(f.value||'');});return t.includes(q);}
@@ -212,6 +210,13 @@ window.BOOKS_DATA = [
     if(!searchBoxes[tab]){var bar=document.createElement('div');bar.style.cssText='display:flex;align-items:center;gap:0.3rem;margin-bottom:0.5rem;';var inp=document.createElement('input');inp.type='text';inp.className='form-control form-control-sm';inp.placeholder=placeholder;inp.style.cssText='max-width:220px;font-size:0.75rem;';inp.addEventListener('input',function(){currentSpread=0;renderFn(this.value.trim().toLowerCase());});bar.appendChild(inp);searchBoxes[tab]={bar:bar,inp:inp};}
     return searchBoxes[tab].bar;
   }
+
+  // ═══════════ 人物 ═══════════
+  function renderChars(searchQ) {
+    var q = (searchQ || '').toLowerCase();
+    const key=LS_CHAR_ORDER+currentBook.id;
+    let chars=getOrdered([...currentBook.characters],key);
+    if (q) chars = chars.filter(function(c){ return searchCharsFn(c, q); });
     const addUrl='/characters/create?book_id='+currentBook.id;
     const L=document.getElementById('page-left-content'), R=document.getElementById('page-right-content');
     const origChars = getOrdered([...currentBook.characters], key);
