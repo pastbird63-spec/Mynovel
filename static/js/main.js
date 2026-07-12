@@ -122,3 +122,21 @@ function toggleFlagNote(id) {
   const note = document.getElementById(`flag-note-${id}`);
   if (note) note.style.display = checkbox.checked ? '' : 'none';
 }
+
+// ═══════════════════════════════════════════════════════════════════════
+// Ctrl+S 全局快捷键：在任何有表单的页面均可快速保存
+// ═══════════════════════════════════════════════════════════════════════
+document.addEventListener('keydown', function (e) {
+  if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+    // 编辑器页面有自己的 Ctrl+S 处理，这里只处理普通表单页
+    var textarea = document.getElementById('paper-textarea');
+    if (textarea) return; // 编辑器页，交给 chapter-editor.js 处理
+
+    // 找到页面上的提交按钮（type=submit 的 button 或 input）
+    var submitBtn = document.querySelector('button[type="submit"], input[type="submit"]');
+    if (submitBtn) {
+      e.preventDefault();
+      submitBtn.click();
+    }
+  }
+});

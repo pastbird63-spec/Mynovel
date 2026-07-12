@@ -123,6 +123,8 @@
   }
 
   function saveNow() {
+    var indicator = $('save-indicator');
+    if (indicator) { indicator.textContent = '保存中…'; indicator.className = 'editor-save-indicator saving'; }
     var content = textarea.value;
     fetch('/api/chapters/' + chapterId, {
       method: 'PUT',
@@ -134,7 +136,10 @@
         paper_size: state.paperSize,
       }),
     }).then(function (r) { return r.json(); })
-      .then(function () { state.dirty = false; });
+      .then(function () {
+        state.dirty = false;
+        if (indicator) { indicator.textContent = '已保存'; indicator.className = 'editor-save-indicator saved'; }
+      });
   }
 
   // ── 稿纸样式 ──────────────────────────────────────────────────
@@ -425,6 +430,8 @@
       state.dirty = true;
       updateStats();
       autoSave();
+      var indicator = $('save-indicator');
+      if (indicator) { indicator.textContent = '未保存'; indicator.className = 'editor-save-indicator'; }
     });
     textarea.addEventListener('keydown', onKeydown);
 
