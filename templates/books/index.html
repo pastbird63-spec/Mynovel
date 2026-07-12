@@ -247,6 +247,26 @@ window.BOOKS_DATA = [
   }
 
   // ═══════════ 搜索 ═══════════
+  function searchCharsFn(item,q){ var t=(item.name+' '+(item.alias||'')+' '+(item.description||'')+' '+(item.age||'')+' '+(item.gender||'')).toLowerCase(); if(item.custom_fields)item.custom_fields.forEach(function(f){t+=' '+(f.name||'')+' '+(f.value||'');}); return t.includes(q); }
+  function searchWorldFn(w,q){ var item=w.item||w; var t=((item.category||'')+' '+item.title+' '+(item.content||'')).toLowerCase(); if(item.fields)item.fields.forEach(function(f){t+=' '+(f.name||'')+' '+(f.value||'');}); return t.includes(q); }
+  function searchPlotFn(item,q){ var t=(item.title+' '+(item.time_in_story||'')+' '+(item.summary||'')+' '+(item.location||'')).toLowerCase(); if(item.custom_fields)item.custom_fields.forEach(function(f){t+=' '+(f.name||'')+' '+(f.value||'');}); if(item.characters)item.characters.forEach(function(c){t+=' '+(c.name||'');}); return t.includes(q); }
+  var searchBoxes = {};
+  function getSearchBox(tab, placeholder, allItems, searchFn, renderFn) {
+    if (!searchBoxes[tab]) {
+      var bar = document.createElement('div'); bar.style.cssText = 'display:flex;align-items:center;gap:0.3rem;margin-bottom:0.5rem;';
+      var inp = document.createElement('input'); inp.type='text'; inp.className='form-control form-control-sm'; inp.placeholder=placeholder; inp.style.cssText='max-width:220px;font-size:0.75rem;';
+      var info = document.createElement('span'); info.style.cssText = 'font-size:0.7rem;color:#999;white-space:nowrap;';
+      var clr = document.createElement('button'); clr.type='button'; clr.textContent='x'; clr.style.cssText = 'border:none;background:none;font-size:1rem;color:#bbb;cursor:pointer;padding:0 0.2rem;display:none;';
+      clr.addEventListener('click',function(){ inp.value=''; info.textContent=''; clr.style.display='none'; currentSpread=0; renderFn(''); });
+      inp.addEventListener('input', function() { var q=this.value.trim().toLowerCase(); clr.style.display=q?'':'none'; currentSpread=0; info.textContent=q?'搜到 '+allItems.filter(function(i){return searchFn(i,q);}).length+' 条':''; renderFn(q); });
+      bar.appendChild(inp); bar.appendChild(info); bar.appendChild(clr);
+      searchBoxes[tab] = { bar:bar, inp:inp, info:info, clr:clr };
+    }
+    var sb = searchBoxes[tab]; var q = sb.inp.value.trim().toLowerCase();
+    if (q) { sb.clr.style.display=''; sb.info.textContent='搜到 '+allItems.filter(function(i){return searchFn(i,q);}).length+' 条'; }
+    return sb.bar;
+  }
+
   function renderWorld(searchQ) {
     var q = (searchQ || '').toLowerCase();
     const key=LS_WORLD_ORDER+currentBook.id;
@@ -276,7 +296,6 @@ window.BOOKS_DATA = [
     addPagination(totalSpreads);
     if (pendingHL) { setTimeout(()=>{const el=document.querySelector('.world-item[data-id="'+pendingHL+'"]');if(el){el.classList.add('highlight-flash');el.scrollIntoView({behavior:'smooth',block:'center'});}pendingHL=0;},200); }
     [L,R].forEach(el=>makeDraggable(el,settings,key,function(){ renderWorld(q); }));
-  }
   }
   function buildWorldPanel(items, title, addUrl) {
     if(items.length===0)return'';
