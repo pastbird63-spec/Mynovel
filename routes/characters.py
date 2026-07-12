@@ -82,7 +82,7 @@ def create():
                 db.session.add(CharacterImage(character_id=character.id, filename=fn))
         db.session.commit()
         flash(f'人物「{character.name}」创建成功！', 'success')
-        return redirect(url_for('characters.detail', id=character.id))
+        return redirect(url_for('books.index', book_id=character.book_id, tab='char', highlight=character.id))
     return render_template('characters/create.html', books=books,
                            preselected_book_id=preselected_book_id)
 
@@ -123,7 +123,7 @@ def edit(id):
                 db.session.add(CharacterImage(character_id=character.id, filename=fn))
         db.session.commit()
         flash(f'人物「{character.name}」已更新', 'success')
-        return redirect(url_for('characters.detail', id=character.id))
+        return redirect(url_for('books.index', book_id=character.book_id, tab='char', highlight=character.id))
     return render_template('characters/edit.html', character=character, books=books)
 
 
@@ -136,8 +136,9 @@ def delete(id):
             os.remove(fp)
     db.session.delete(character)
     db.session.commit()
+    book_id = character.book_id
     flash(f'人物「{character.name}」已删除', 'warning')
-    return redirect(url_for('characters.index'))
+    return redirect(url_for('books.index', book_id=book_id, tab='char'))
 
 
 @characters_bp.route('/image/<int:image_id>/delete', methods=['POST'])

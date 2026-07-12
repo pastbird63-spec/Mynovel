@@ -1,15 +1,12 @@
 {% extends 'base.html' %}
 {% block title %}{{ book.title }}{% endblock %}
-{% block nav_books %}active-nav{% endblock %}
 
 {% block content %}
 <!-- 书目 Hub 头部 -->
 <div class="book-hub-header mb-4">
-  <div style="position:relative;z-index:1;">
-    <div class="book-hub-title">{{ book.title }}</div>
-    {% if book.genre %}<span class="tag tag-genre mb-2 d-inline-block">{{ book.genre }}</span>{% endif %}
-    {% if book.description %}<p class="mb-0 mt-2" style="color:var(--brown-mid);font-size:0.95rem;">{{ book.description }}</p>{% endif %}
-  </div>
+  <div class="book-hub-title">{{ book.title }}</div>
+  {% if book.genre %}<span class="tag tag-genre mb-2 d-inline-block">{{ book.genre }}</span>{% endif %}
+  {% if book.description %}<p class="mb-0 mt-2" style="color:var(--text-secondary);font-size:0.92rem;">{{ book.description }}</p>{% endif %}
 </div>
 
 <!-- 操作栏 -->
@@ -19,7 +16,7 @@
   <a href="{{ url_for('export.print_view', book_id=book.id) }}" class="btn btn-sm btn-outline-secondary" target="_blank">🖨 打印预览</a>
   <a href="{{ url_for('export.export_json', book_id=book.id) }}" class="btn btn-sm btn-outline-secondary">⬇ 导出 JSON</a>
   <form method="POST" action="{{ url_for('books.delete', id=book.id) }}"
-        onsubmit="return confirm('删除「{{ book.title }}」？人物不会被删除，但会变为未分类。')">
+        onsubmit="return confirm('删除「{{ book.title }}」？人物不会被删除，但会变为未分类。')" class="d-inline">
     <button type="submit" class="btn btn-sm btn-outline-danger">删除书目</button>
   </form>
 </div>
@@ -42,12 +39,11 @@
         <a href="{{ url_for('characters.detail', id=character.id) }}" class="text-decoration-none">
           <div class="char-card">
             {% if character.images %}
-              <div class="mucha-frame"></div>
               <img src="{{ url_for('static', filename='uploads/' + character.images[0].filename) }}"
                    class="char-card-img">
             {% else %}
               <div class="char-card-placeholder">
-                <span class="char-card-placeholder-icon">✦</span>
+                <span class="char-card-placeholder-icon">{{ character.name[0] }}</span>
               </div>
             {% endif %}
             <div class="char-card-body">
@@ -65,7 +61,7 @@
     </div>
     {% endif %}
   </div>
-  <div class="ornament-leaf"></div>
+
   <!-- 右侧：情节 -->
   <div class="col-lg-5">
     <div class="section-header">
@@ -85,7 +81,7 @@
           <div class="card-body py-2 px-3">
             <div class="d-flex justify-content-between align-items-start">
               <a href="{{ url_for('plots.detail', node_id=node.id) }}"
-                 class="text-decoration-none fw-bold" style="color:var(--brown);font-size:0.92rem;">
+                 class="text-decoration-none fw-bold" style="color:var(--text);font-size:0.9rem;">
                 {{ node.title }}
               </a>
               {% set flagged_count = node.custom_fields | selectattr('is_flagged') | list | length %}
@@ -94,7 +90,7 @@
               {% endif %}
             </div>
             {% if node.time_in_story or node.location %}
-            <div style="font-size:0.75rem;color:var(--brown-light);margin-top:2px;">
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px;">
               {% if node.time_in_story %}{{ node.time_in_story }}{% endif %}
               {% if node.location %} · {{ node.location }}{% endif %}
             </div>

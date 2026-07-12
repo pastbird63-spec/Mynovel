@@ -52,6 +52,7 @@ with app.app_context():
     add_column_if_missing('characters', 'book_id', 'INTEGER REFERENCES books(id)')
     if inspector.has_table('plot_nodes'):
         add_column_if_missing('plot_nodes', 'book_id', 'INTEGER REFERENCES books(id)')
+        add_column_if_missing('plot_nodes', 'parent_id', 'INTEGER REFERENCES plot_nodes(id)')
     if inspector.has_table('relationships'):
         add_column_if_missing('relationships', 'book_id', 'INTEGER REFERENCES books(id)')
     # 修复旧记录的 book_id 兼容性

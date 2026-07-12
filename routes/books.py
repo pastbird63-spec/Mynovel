@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from models import db, Book, Character
+from models import db, Book, Character, WorldSetting
 
 books_bp = Blueprint('books', __name__, url_prefix='/books')
 
@@ -8,7 +8,10 @@ books_bp = Blueprint('books', __name__, url_prefix='/books')
 def index():
     books = Book.query.order_by(Book.created_at.desc()).all()
     unassigned_count = Character.query.filter_by(book_id=None).count()
-    return render_template('books/index.html', books=books, unassigned_count=unassigned_count)
+    world_data = {}
+    for book in books:
+        world_data[book.id] = WorldSetting.query.filter_by(book_id=book.id).order_by(WorldSetting.category, WorldSetting.created_at.desc()).all()
+    return render_template('books/index.html', books=books, world_data=world_data, unassigned_count=unassigned_count)
 
 
 @books_bp.route('/create', methods=['GET', 'POST'])

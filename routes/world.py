@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash
-from models import db, Book, WorldSetting, WORLD_SETTING_CATEGORIES
+from models import db, Book, WorldSetting, WorldSettingField, WORLD_SETTING_CATEGORIES
 from datetime import datetime
 
 world_bp = Blueprint('world', __name__, url_prefix='/world')
@@ -53,9 +53,14 @@ def create():
             content=request.form.get('content', '').strip()
         )
         db.session.add(setting)
+        db.session.flush()
+        # 保存描述卡片
+        for fname, fvalue in zip(request.form.getlist('field_name'), request.form.getlist('field_value')):
+            if fname.strip():
+                db.session.add(WorldSettingField(setting_id=setting.id, field_name=fname.strip(), field_value=fvalue.strip()))
         db.session.commit()
         flash(f'「{setting.title}」已创建', 'success')
-        return redirect(url_for('world.index'))
+        return redirect(url_for('books.index', book_id=book_id, tab='world', highlight=setting.id))
     return render_template('world/create.html',
                            books=books,
                            categories=WORLD_SETTING_CATEGORIES,
@@ -86,9 +91,14 @@ def edit(setting_id):
         setting.category = category
         setting.content = request.form.get('content', '').strip()
         setting.updated_at = datetime.utcnow()
+        # 重建描述卡片
+        WorldSettingField.query.filter_by(setting_id=setting.id).delete()
+        for fname, fvalue in zip(request.form.getlist('field_name'), request.form.getlist('field_value')):
+            if fname.strip():
+                db.session.add(WorldSettingField(setting_id=setting.id, field_name=fname.strip(), field_value=fvalue.strip()))
         db.session.commit()
         flash(f'「{setting.title}」已更新', 'success')
-        return redirect(url_for('world.detail', setting_id=setting_id))
+        return redirect(url_for('books.index', book_id=setting.book_id, tab='world', highlight=setting.id))
     return render_template('world/edit.html',
                            setting=setting,
                            books=books,
@@ -102,4 +112,4 @@ def delete(setting_id):
     db.session.delete(setting)
     db.session.commit()
     flash(f'「{title}」已删除', 'warning')
-    return redirect(url_for('world.index'))
+    return redirect(url_for('books.index', book_id=setting.book_id, tab='world'))

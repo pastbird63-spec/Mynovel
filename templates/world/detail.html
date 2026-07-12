@@ -1,51 +1,60 @@
 {% extends 'base.html' %}
-{% block title %}{{ setting.title }}{% endblock %}
+{% block title %}{{ setting.title }} · 世界观 · MyNovel{% endblock %}
 
 {% block content %}
-<nav aria-label="breadcrumb" class="mb-3">
-  <ol class="breadcrumb">
-    <li class="breadcrumb-item"><a href="{{ url_for('books.index') }}">书架</a></li>
-    {% if setting.book %}
-    <li class="breadcrumb-item"><a href="{{ url_for('books.detail', id=setting.book.id) }}">{{ setting.book.title }}</a></li>
-    <li class="breadcrumb-item"><a href="{{ url_for('world.index') }}">世界观设定</a></li>
-    {% endif %}
-    <li class="breadcrumb-item active">{{ setting.title }}</li>
-  </ol>
+<nav class="breadcrumb mb-3">
+  <span class="breadcrumb-item"><a href="{{ url_for('books.index') }}">书架</a></span>
+  <span class="breadcrumb-item active">{{ setting.title }}</span>
 </nav>
 
 <div class="page-header">
   <div>
-    <h2 class="mb-1">{{ setting.title }}</h2>
-    <span class="tag tag-genre">{{ setting.category }}</span>
+    <h2 style="margin:0;">{{ setting.title }}</h2>
   </div>
   <div class="d-flex gap-2">
-    <a href="{{ url_for('world.edit', setting_id=setting.id) }}" class="btn btn-outline-primary">编辑</a>
-    <form method="POST" action="{{ url_for('world.delete', setting_id=setting.id) }}"
-          onsubmit="return confirm('确定删除「{{ setting.title }}」？此操作不可撤销。')">
+    <a href="{{ url_for('world.edit', setting_id=setting.id) }}" class="btn btn-outline-secondary">编辑</a>
+    <form method="POST" action="{{ url_for('world.delete', setting_id=setting.id) }}" onsubmit="return confirm('确定删除「{{ setting.title }}」？')" class="d-inline">
       <button type="submit" class="btn btn-outline-danger">删除</button>
     </form>
   </div>
 </div>
 
 <div class="card mb-3">
-  <div class="card-header">设定内容</div>
   <div class="card-body">
-    {% if setting.content %}
-    <div style="white-space: pre-wrap; line-height: 1.9; color: var(--brown); font-size: 0.95rem;">{{ setting.content }}</div>
+    <div class="mb-2">
+      <span style="color:#999;font-size:0.78rem;">分类</span>
+      <span class="tag tag-genre ms-2">{{ setting.category }}</span>
+    </div>
+    {% if setting.book %}
+    <div class="mb-3">
+      <span style="color:#999;font-size:0.78rem;">所属书目</span>
+      <a href="{{ url_for('books.index') }}" class="tag tag-book ms-2">{{ setting.book.title }}</a>
+    </div>
     {% else %}
+    <div class="mb-3">
+      <span class="tag tag-unassigned">通用设定</span>
+    </div>
+    {% endif %}
+    {% if setting.content %}
+    <div style="white-space:pre-wrap;line-height:1.9;color:var(--text);font-size:0.92rem;margin-bottom:0.8rem;">{{ setting.content }}</div>
+    {% endif %}
+    {% if setting.fields %}
+    <div style="border-top:1px solid #eee;padding-top:0.6rem;">
+      {% for f in setting.fields %}
+      <div style="background:#f8f8f8;border:1px solid #eee;border-radius:3px;padding:0.5rem 0.7rem;margin-bottom:0.4rem;">
+        <div style="font-size:0.72rem;color:#999;margin-bottom:0.1rem;">{{ f.field_name }}</div>
+        <div style="font-size:0.82rem;line-height:1.7;">{{ f.field_value }}</div>
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+    {% if not setting.content and not setting.fields %}
     <p class="text-muted mb-0 small">暂无内容</p>
     {% endif %}
   </div>
 </div>
 
-<div class="text-muted small mb-4" style="letter-spacing:0.02em;">
-  创建于 {{ setting.created_at.strftime('%Y-%m-%d %H:%M') }}
-  {% if setting.updated_at and setting.updated_at != setting.created_at %}
-  · 最后更新 {{ setting.updated_at.strftime('%Y-%m-%d %H:%M') }}
-  {% endif %}
+<div class="d-flex gap-2">
+  <a href="{{ url_for('books.index') }}" class="btn btn-sm btn-outline-secondary">返回书架</a>
 </div>
-
-{% if setting.book %}
-<a href="{{ url_for('world.index') }}" class="btn btn-outline-secondary">← 返回设定库</a>
-{% endif %}
 {% endblock %}

@@ -1,86 +1,17 @@
 {% extends 'base.html' %}
-{% block title %}世界观设定库{% endblock %}
-{% block nav_world %}active-nav{% endblock %}
-
+{% block title %}世界观 · MyNovel{% endblock %}
 {% block content %}
-<div class="page-header">
-  <div>
-    <h2>世界观设定库</h2>
-    <p class="text-muted mb-0" style="font-size:0.88rem;">{{ settings|length }} 条设定</p>
+<div class="app-container" style="text-align:center;padding-top:4rem;">
+  <h2 style="font-weight:400;margin-bottom:1rem;">世界观</h2>
+  <p style="color:#999;margin-bottom:1.5rem;">世界观设定已整合到书架中。请从书架打开一本书，在书页内查看世界观。</p>
+  <a href="{{ url_for('books.index') }}" class="btn btn-primary">前往书架</a>
+  {% if books %}
+  <div style="margin-top:2rem;text-align:left;max-width:500px;margin-left:auto;margin-right:auto;">
+    <p style="font-size:0.8rem;color:#999;margin-bottom:0.5rem;">或者直接打开一本书：</p>
+    {% for book in books %}
+    <a href="{{ url_for('books.index') }}" class="btn btn-sm btn-outline-secondary m-1" style="margin:0.15rem;">{{ book.title }}</a>
+    {% endfor %}
   </div>
-  <a href="{{ url_for('world.create') }}" class="btn btn-primary">+ 新增设定</a>
+  {% endif %}
 </div>
-
-<!-- 按书筛选 -->
-{% if books %}
-<div class="filter-bar">
-  <a href="{{ url_for('world.index') }}"
-     class="filter-btn {% if not current_book %}active{% endif %}">全部</a>
-  {% for book in books %}
-  <a href="{{ url_for('world.index', book_id=book.id) }}"
-     class="filter-btn {% if current_book and current_book.id == book.id %}active{% endif %}">
-    {{ book.title }}
-  </a>
-  {% endfor %}
-  <span style="color:var(--brown-pale);padding:0 0.3rem;">|</span>
-  {% for cat in categories %}
-  <a href="{{ url_for('world.index', category=cat) }}"
-     class="filter-btn {% if current_category == cat %}active{% endif %}">{{ cat }}</a>
-  {% endfor %}
-</div>
-{% endif %}
-
-{% if settings %}
-  {% for cat in categories %}
-    {% set items = grouped[cat] %}
-    {% if items %}
-    <div class="mb-4">
-      <div class="section-header">
-        <span class="section-title">{{ cat }} <span class="section-count">{{ items|length }}</span></span>
-      </div>
-      <div class="row g-3">
-        {% for setting in items %}
-        <div class="col-md-6">
-          <div class="card hover-card h-100">
-            <div class="card-body">
-              <div class="d-flex justify-content-between align-items-start mb-2">
-                <a href="{{ url_for('world.detail', setting_id=setting.id) }}"
-                   class="text-decoration-none fw-bold"
-                   style="color:var(--brown);font-family:'Cormorant Garant',serif;font-size:1.05rem;">
-                  {{ setting.title }}
-                </a>
-                <span class="tag tag-genre ms-2">{{ setting.category }}</span>
-              </div>
-              {% if setting.book %}
-                <span class="tag tag-book mb-2 d-inline-block">{{ setting.book.title }}</span>
-              {% else %}
-                <span class="tag tag-unassigned mb-2 d-inline-block">通用</span>
-              {% endif %}
-              {% if setting.content %}
-              <p class="mb-0 small" style="color:var(--brown-mid);line-height:1.7;">
-                {{ setting.content[:120] }}{% if setting.content|length > 120 %}…{% endif %}
-              </p>
-              {% endif %}
-            </div>
-            <div class="card-footer d-flex gap-2">
-              <a href="{{ url_for('world.detail', setting_id=setting.id) }}" class="btn btn-sm btn-outline-primary">详情</a>
-              <a href="{{ url_for('world.edit', setting_id=setting.id) }}" class="btn btn-sm btn-outline-secondary">编辑</a>
-              <form method="POST" action="{{ url_for('world.delete', setting_id=setting.id) }}"
-                    onsubmit="return confirm('删除「{{ setting.title }}」？')">
-                <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
-              </form>
-            </div>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-  {% endfor %}
-{% else %}
-<div class="empty-state">
-  <div class="empty-state-icon">✦</div>
-  <p>还没有设定，<a href="{{ url_for('world.create') }}">点击添加</a></p>
-</div>
-{% endif %}
 {% endblock %}

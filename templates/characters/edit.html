@@ -1,14 +1,11 @@
 {% extends 'base.html' %}
-{% block title %}编辑 {{ character.name }}{% endblock %}
+{% block title %}编辑 {{ character.name }} · MyNovel{% endblock %}
 
 {% block content %}
 <div class="row justify-content-center">
 <div class="col-md-8">
 <h2 class="mb-4">编辑：{{ character.name }}</h2>
 
-<!-- ============================================== -->
-<!-- ✅ 第一步：先放 现有图片 + 删除功能（在大表单外面） -->
-<!-- ============================================== -->
 {% if character.images %}
 <div class="card mb-3">
   <div class="card-header">现有图片</div>
@@ -16,10 +13,8 @@
     <div class="row g-2">
       {% for image in character.images %}
       <div class="col-4">
-        <img src="{{ url_for('static', filename='uploads/' + image.filename) }}"
-             class="img-fluid rounded" style="height: 150px; object-fit: cover; width: 100%;">
-        <form method="POST" action="{{ url_for('characters.delete_image', image_id=image.id) }}"
-              class="mt-1" onsubmit="return confirm('删除这张图片？')">
+        <img src="{{ url_for('static', filename='uploads/' + image.filename) }}" class="img-fluid rounded" style="height:150px;object-fit:cover;width:100%;">
+        <form method="POST" action="{{ url_for('characters.delete_image', image_id=image.id) }}" class="mt-1" onsubmit="return confirm('删除这张图片？')">
           <button type="submit" class="btn btn-sm btn-outline-danger w-100">删除</button>
         </form>
       </div>
@@ -29,22 +24,7 @@
 </div>
 {% endif %}
 
-<!-- ============================================== -->
-<!-- ✅ 第二步：再放大表单（只负责保存，里面不放删除） -->
-<!-- ============================================== -->
-<form method="POST" enctype="multipart/form-data">
-
-  <div class="card mb-3">
-    <div class="card-header">归属书目</div>
-    <div class="card-body">
-      <select name="book_id" class="form-select">
-        <option value="">不指定（未分类）</option>
-        {% for book in books %}
-        <option value="{{ book.id }}" {% if character.book_id == book.id %}selected{% endif %}>{{ book.title }}</option>
-        {% endfor %}
-      </select>
-    </div>
-  </div>
+<form method="POST" enctype="multipart/form-data" id="char-form">
 
   <div class="card mb-3">
     <div class="card-header">基本信息</div>
@@ -54,63 +34,60 @@
         <input type="text" name="name" class="form-control" value="{{ character.name }}" required>
       </div>
       <div class="row">
-        <div class="col-md-6 mb-3">
-          <label class="form-label">别名 / 外号</label>
-          <input type="text" name="alias" class="form-control" value="{{ character.alias or '' }}">
+        <div class="col-md-5 mb-3">
+          <label class="form-label">所属书目</label>
+          <select name="book_id" class="form-select" id="book-select">
+            <option value="">不指定</option>
+            {% for book in books %}<option value="{{ book.id }}" {% if character.book_id == book.id %}selected{% endif %}>{{ book.title }}</option>{% endfor %}
+          </select>
         </div>
         <div class="col-md-3 mb-3">
+          <label class="form-label">别名</label>
+          <input type="text" name="alias" class="form-control" value="{{ character.alias or '' }}">
+        </div>
+        <div class="col-md-2 mb-3">
           <label class="form-label">年龄</label>
           <input type="text" name="age" class="form-control" value="{{ character.age or '' }}">
         </div>
-        <div class="col-md-3 mb-3">
+        <div class="col-md-2 mb-3">
           <label class="form-label">性别</label>
           <select name="gender" class="form-select">
-            <option value="">不指定</option>
-            <option value="女" {% if character.gender == '女' %}selected{% endif %}>女</option>
-            <option value="男" {% if character.gender == '男' %}selected{% endif %}>男</option>
-            <option value="其他" {% if character.gender == '其他' %}selected{% endif %}>其他</option>
+            <option value="">-</option>
+            <option value="女" {% if character.gender=='女' %}selected{% endif %}>女</option>
+            <option value="男" {% if character.gender=='男' %}selected{% endif %}>男</option>
+            <option value="其他" {% if character.gender=='其他' %}selected{% endif %}>其他</option>
           </select>
         </div>
       </div>
       <div class="mb-3">
-        <label class="form-label">人物描述</label>
-        <textarea name="description" class="form-control" rows="4">{{ character.description or '' }}</textarea>
+        <label class="form-label">简述</label>
+        <textarea name="description" class="form-control" rows="3" placeholder="一两句话概括这个人物...">{{ character.description or '' }}</textarea>
       </div>
     </div>
   </div>
 
+  <!-- ═══ 描述卡片（可添加多张） ═══ -->
   <div class="card mb-3">
     <div class="card-header d-flex justify-content-between align-items-center">
-      自定义词条
-      <button type="button" class="btn btn-sm btn-outline-primary" onclick="addField('fields-container', false)">+ 添加</button>
+      描述卡片
+      <button type="button" class="btn btn-sm btn-outline-primary" onclick="addCard()">+ 新建卡片</button>
     </div>
-    <div class="card-body">
-      <div id="fields-container">
-        {% if character.custom_fields %}
-          {% for field in character.custom_fields %}
-          <div class="field-row mb-3 p-3 border rounded" style="background: var(--cream);">
-            <div class="row g-2 align-items-center">
-              <div class="col-md-3">
-                <input type="text" name="field_name" class="form-control" value="{{ field.field_name }}">
-              </div>
-              <div class="col-md-8">
-                <input type="text" name="field_value" class="form-control" value="{{ field.field_value or '' }}">
-              </div>
-              <div class="col-md-1">
-                <button type="button" class="btn btn-outline-danger btn-sm w-100"
-                        onclick="this.closest('.field-row').remove()">×</button>
-              </div>
-            </div>
+    <div class="card-body" id="cards-container">
+      {% if character.custom_fields %}
+        {% for field in character.custom_fields %}
+        <div class="field-card" style="background:#f9f9f9;border:1px solid #e0e0e0;border-radius:4px;padding:0.8rem;margin-bottom:0.6rem;">
+          <div class="d-flex justify-content-between align-items-start mb-2">
+            <input type="text" name="field_name" class="form-control form-control-sm" value="{{ field.field_name }}" placeholder="卡片标题" style="width:60%;font-weight:500;">
+            <button type="button" class="btn btn-sm btn-ghost" onclick="this.closest('.field-card').remove()" style="font-size:1rem;line-height:1;">×</button>
           </div>
-          {% endfor %}
-        {% else %}
-          <p class="text-muted mb-0 small" id="no-fields-hint">点击"添加"自定义字段</p>
-        {% endif %}
-      </div>
+          <textarea name="field_value" class="form-control form-control-sm" rows="2" placeholder="卡片内容...">{{ field.field_value or '' }}</textarea>
+        </div>
+        {% endfor %}
+      {% endif %}
+      <p class="text-muted mb-0 small" id="no-cards-hint" {% if character.custom_fields %}style="display:none"{% endif %}>还没有描述卡片，点击上方按钮添加</p>
     </div>
   </div>
 
-  <!-- 大表单内部只保留：上传新图片 -->
   <div class="card mb-3">
     <div class="card-header">上传新图片</div>
     <div class="card-body">
@@ -121,11 +98,25 @@
 
   <div class="d-flex gap-2">
     <button type="submit" class="btn btn-primary">保存修改</button>
-    <a href="{{ url_for('characters.detail', id=character.id) }}" class="btn btn-outline-secondary">取消</a>
+    <a href="{{ url_for('books.index') }}" class="btn btn-outline-secondary">取消</a>
   </div>
 </form>
-<!-- 大表单结束 -->
+</div>
+</div>
+{% endblock %}
 
-</div>
-</div>
+{% block scripts %}
+<script>
+let cardCount = {{ character.custom_fields|length }};
+function addCard() {
+  cardCount++;
+  const hint = document.getElementById('no-cards-hint'); if (hint) hint.style.display = 'none';
+  const container = document.getElementById('cards-container');
+  const div = document.createElement('div');
+  div.className = 'field-card';
+  div.style.cssText = 'background:#f9f9f9;border:1px solid #e0e0e0;border-radius:4px;padding:0.8rem;margin-bottom:0.6rem;';
+  div.innerHTML = '<div class="d-flex justify-content-between align-items-start mb-2"><input type="text" name="field_name" class="form-control form-control-sm" placeholder="卡片标题" style="width:60%;font-weight:500;"><button type="button" class="btn btn-sm btn-ghost" onclick="this.closest(\'.field-card\').remove()" style="font-size:1rem;line-height:1;">×</button></div><textarea name="field_value" class="form-control form-control-sm" rows="3" placeholder="卡片内容..."></textarea>';
+  container.appendChild(div);
+}
+</script>
 {% endblock %}

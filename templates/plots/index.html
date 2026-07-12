@@ -4,7 +4,7 @@
 {% block content %}
 <nav aria-label="breadcrumb" class="mb-3">
   <ol class="breadcrumb">
-    <li class="breadcrumb-item"><a href="{{ url_for('books.index') }}">书架</a></li>
+    <li class="breadcrumb-item"><a href="{{ url_for('books.index') }}">首页</a></li>
     <li class="breadcrumb-item"><a href="{{ url_for('books.detail', id=book.id) }}">{{ book.title }}</a></li>
     <li class="breadcrumb-item active">情节脉络</li>
   </ol>
@@ -15,17 +15,17 @@
   <a href="{{ url_for('plots.create', book_id=book.id) }}" class="btn btn-primary">+ 新建节点</a>
 </div>
 
-<!-- 伏笔提醒区 -->
+<!-- 伏笔提醒 -->
 {% if flagged %}
 <div class="alert alert-warning mb-4">
-  <strong>🔖 伏笔提醒</strong>（{{ flagged|length }} 条未回收）
+  <strong>🔖 伏笔提醒</strong>（{{ flagged|length }} 条）
   <ul class="mb-0 mt-2">
     {% for field in flagged %}
     <li>
       <a href="{{ url_for('plots.detail', node_id=field.plot_node_id) }}"
-         class="alert-link">{{ field.plot_node.title }}</a>
-      · <span class="fw-bold">{{ field.field_name }}</span>：{{ field.field_value }}
-      {% if field.flag_note %}<span class="text-muted small"> — {{ field.flag_note }}</span>{% endif %}
+         style="color:var(--text);">{{ field.plot_node.title }}</a>
+      · <strong>{{ field.field_name }}</strong>：{{ field.field_value }}
+      {% if field.flag_note %}<small class="text-muted"> — {{ field.flag_note }}</small>{% endif %}
     </li>
     {% endfor %}
   </ul>
@@ -33,46 +33,62 @@
 {% endif %}
 
 {% if nodes %}
-<div class="timeline">
-  {% for node in nodes %}
-  <div class="timeline-item">
-    <div class="timeline-dot"></div>
-    <div class="card hover-card">
-      <div class="card-body">
+<div class="timeline-animated" id="timeline-container">
+
+  <!-- SVG 连线层 -->
+  <svg class="timeline-svg" id="timeline-svg"></svg>
+
+  <!-- 原点 -->
+  <div class="timeline-origin" id="timeline-origin" title="故事起点"></div>
+
+  <!-- 节点列表 -->
+  <div class="timeline-nodes" id="timeline-nodes">
+    {% for node in nodes %}
+    <div class="timeline-node"
+         data-node-id="{{ node.id }}"
+         style="animation-delay: {{ 0.4 + loop.index0 * 0.12 }}s;">
+
+      <div class="timeline-node-dot"></div>
+
+      <div class="timeline-node-card">
         <div class="d-flex justify-content-between align-items-start">
-          <div>
-            <h5 class="mb-1">
-              <a href="{{ url_for('plots.detail', node_id=node.id) }}"
-                 class="text-decoration-none" style="color: var(--brown);">{{ node.title }}</a>
-            </h5>
-            <div class="text-muted small mb-2">
-              {% if node.time_in_story %}⏱ {{ node.time_in_story }}{% endif %}
-              {% if node.location %}&nbsp;·&nbsp; 📍 {{ node.location }}{% endif %}
+          <div class="flex-grow-1">
+            <div class="timeline-node-title">
+              <a href="{{ url_for('plots.detail', node_id=node.id) }}">{{ node.title }}</a>
+            </div>
+            <div class="timeline-node-meta">
+              {% if node.time_in_story %}<span>⏱ {{ node.time_in_story }}</span>{% endif %}
+              {% if node.location %}<span>📍 {{ node.location }}</span>{% endif %}
             </div>
             {% if node.summary %}
-              <p class="mb-2 small">{{ node.summary[:100] }}{% if node.summary|length > 100 %}…{% endif %}</p>
+            <div class="timeline-node-summary">
+              {{ node.summary[:100] }}{% if node.summary|length > 100 %}…{% endif %}
+            </div>
             {% endif %}
-            <!-- 出场人物标签 -->
+
+            <!-- 出场人物 -->
             {% if node.plot_characters %}
-              <div class="d-flex flex-wrap gap-1">
-                {% for pc in node.plot_characters %}
-                <a href="{{ url_for('characters.detail', id=pc.character.id) }}"
-                   class="badge bg-secondary text-decoration-none">{{ pc.character.name }}</a>
-                {% endfor %}
-              </div>
+            <div class="d-flex flex-wrap gap-1 mb-2">
+              {% for pc in node.plot_characters %}
+              <a href="{{ url_for('characters.detail', id=pc.character.id) }}"
+                 class="badge bg-secondary text-decoration-none">{{ pc.character.name }}</a>
+              {% endfor %}
+            </div>
             {% endif %}
+
             <!-- 伏笔标记 -->
             {% set flagged_fields = node.custom_fields | selectattr('is_flagged') | list %}
             {% if flagged_fields %}
-              <div class="mt-2">
-                {% for f in flagged_fields %}
-                <span class="badge bg-warning me-1">🔖 {{ f.field_name }}</span>
-                {% endfor %}
-              </div>
+            <div>
+              {% for f in flagged_fields %}
+              <span class="badge bg-warning me-1">🔖 {{ f.field_name }}</span>
+              {% endfor %}
+            </div>
             {% endif %}
           </div>
-          <!-- 上移/下移按钮 -->
-          <div class="d-flex flex-column gap-1 ms-3">
+
+          <!-- 排序按钮 -->
+          <div class="d-flex flex-column gap-1 ms-2">
             <form method="POST" action="{{ url_for('plots.move', node_id=node.id) }}">
               <input type="hidden" name="direction" value="up">
               <button type="submit" class="btn btn-sm btn-outline-secondary" title="上移">↑</button>
@@ -83,24 +99,106 @@
             </form>
           </div>
         </div>
-      </div>
-      <div class="card-footer d-flex gap-2">
-        <a href="{{ url_for('plots.detail', node_id=node.id) }}" class="btn btn-sm btn-outline-primary">详情</a>
-        <a href="{{ url_for('plots.edit', node_id=node.id) }}" class="btn btn-sm btn-outline-secondary">编辑</a>
-        <form method="POST" action="{{ url_for('plots.delete', node_id=node.id) }}"
-              onsubmit="return confirm('删除节点「{{ node.title }}」？')">
-          <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
-        </form>
+
+        <div class="timeline-node-footer">
+          <a href="{{ url_for('plots.detail', node_id=node.id) }}" class="btn btn-sm btn-outline-primary">详情</a>
+          <a href="{{ url_for('plots.edit', node_id=node.id) }}" class="btn btn-sm btn-outline-secondary">编辑</a>
+          <form method="POST" action="{{ url_for('plots.delete', node_id=node.id) }}"
+                onsubmit="return confirm('删除节点「{{ node.title }}」？')" class="d-inline">
+            <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
+          </form>
+        </div>
       </div>
     </div>
+    {% endfor %}
   </div>
-  {% endfor %}
 </div>
 
 {% else %}
-<div class="text-center py-5" style="color: var(--brown-light);">
-  <div style="font-size: 3rem;">✦</div>
-  <p class="mt-3">还没有情节节点，点击右上角开始构建故事脉络</p>
+<div class="empty-state">
+  <div class="empty-state-icon">◇</div>
+  <p>还没有情节节点，<a href="{{ url_for('plots.create', book_id=book.id) }}">开始构建故事脉络</a></p>
 </div>
 {% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script>
+(function() {
+  const container = document.getElementById('timeline-container');
+  if (!container) return;
+
+  const svg = document.getElementById('timeline-svg');
+  const origin = document.getElementById('timeline-origin');
+  const nodes = document.querySelectorAll('.timeline-node');
+
+  function drawLines() {
+    if (!origin || nodes.length === 0) return;
+
+    const containerRect = container.getBoundingClientRect();
+    const originRect = origin.getBoundingClientRect();
+
+    // 原点中心坐标（相对于 container）
+    const ox = originRect.left - containerRect.left + originRect.width / 2;
+    const oy = originRect.top - containerRect.top + originRect.height / 2;
+
+    // 设置 SVG 尺寸
+    svg.setAttribute('width', containerRect.width);
+    svg.setAttribute('height', containerRect.height);
+    svg.style.position = 'absolute';
+    svg.style.top = '0';
+    svg.style.left = '0';
+
+    let paths = '';
+
+    nodes.forEach((node, index) => {
+      const dot = node.querySelector('.timeline-node-dot');
+      if (!dot) return;
+
+      const dotRect = dot.getBoundingClientRect();
+      const dx = dotRect.left - containerRect.left + dotRect.width / 2;
+      const dy = dotRect.top - containerRect.top + dotRect.height / 2;
+
+      // 三次贝塞尔曲线：从原点出发，水平延伸，弯曲后连到节点
+      const midX = ox + (dx - ox) * 0.5;
+      paths += `<path d="M ${ox} ${oy}
+        C ${midX} ${oy}, ${midX} ${dy}, ${dx} ${dy}"
+        stroke="#999" stroke-width="1" fill="none"
+        stroke-dasharray="2000" stroke-dashoffset="2000"
+        class="timeline-path"
+        style="animation: draw-line 0.8s ${0.3 + index * 0.1}s ease-out forwards;" />`;
+    });
+
+    svg.innerHTML = paths;
+
+    // 更新 SVG 实际尺寸以匹配内容
+    const bbox = svg.getBBox && svg.getBBox();
+    if (bbox) {
+      // 不做缩小，保持全尺寸
+    }
+  }
+
+  // 定义描线动画 keyframe（如果 CSS 中未定义则在此注入）
+  if (!document.getElementById('timeline-keyframes')) {
+    const style = document.createElement('style');
+    style.id = 'timeline-keyframes';
+    style.textContent = `
+      @keyframes draw-line {
+        to { stroke-dashoffset: 0; }
+      }
+    `;
+    document.head.appendChild(style);
+  }
+
+  // 初次绘制
+  drawLines();
+
+  // 窗口大小变化时重绘
+  let resizeTimeout;
+  window.addEventListener('resize', () => {
+    clearTimeout(resizeTimeout);
+    resizeTimeout = setTimeout(drawLines, 200);
+  });
+})();
+</script>
 {% endblock %}

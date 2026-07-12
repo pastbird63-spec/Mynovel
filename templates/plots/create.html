@@ -1,80 +1,32 @@
 {% extends 'base.html' %}
-{% block title %}新建情节节点{% endblock %}
-
+{% block title %}新建情节节点 · MyNovel{% endblock %}
 {% block content %}
-<div class="row justify-content-center">
-<div class="col-md-8">
+<div class="row justify-content-center"><div class="col-md-8">
 <h2 class="mb-4">新建情节节点</h2>
-<form method="POST">
-
-  <div class="card mb-3">
-    <div class="card-header">基本信息</div>
-    <div class="card-body">
-      <div class="mb-3">
-        <label class="form-label">节点标题 <span class="text-danger">*</span></label>
-        <input type="text" name="title" class="form-control" required placeholder="如：初入皇城、决战前夜……">
-      </div>
-      <div class="row">
-        <div class="col-md-6 mb-3">
-          <label class="form-label">故事内时间</label>
-          <input type="text" name="time_in_story" class="form-control" placeholder="如：元和三年三月">
-        </div>
-        <div class="col-md-6 mb-3">
-          <label class="form-label">地点</label>
-          <input type="text" name="location" class="form-control" placeholder="如：皇城、北境">
-        </div>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">情节概述</label>
-        <textarea name="summary" class="form-control" rows="4" placeholder="这个节点发生了什么……"></textarea>
-      </div>
+<form method="POST" id="plot-form">
+  <div class="card mb-3"><div class="card-header">基本信息</div><div class="card-body">
+    <div class="mb-3"><label class="form-label">节点标题 <span class="text-danger">*</span></label><input type="text" name="title" class="form-control" required placeholder="如：初入皇城、决战前夜……"></div>
+    <div class="row">
+      <div class="col-md-3 mb-3"><label class="form-label">排序序号 <span class="text-danger">*</span></label><input type="number" name="sort_order" class="form-control" value="{{ next_order }}" placeholder="数字越小越靠前"></div>
+      <div class="col-md-5 mb-3"><label class="form-label">故事时间（显示用）</label><input type="text" name="time_in_story" class="form-control" placeholder="如：西岐七十五年七月、第三章"></div>
+      <div class="col-md-4 mb-3"><label class="form-label">地点</label><input type="text" name="location" class="form-control" placeholder="如：皇城、北境"></div>
     </div>
-  </div>
+    <div class="row"><div class="col-md-12 mb-3">{% if parent_nodes %}<label class="form-label">父节点（可选）</label><select name="parent_id" class="form-select"><option value="">无（独立节点）</option>{% for p in parent_nodes %}<option value="{{ p.id }}">{{ p.title }}</option>{% endfor %}</select>{% endif %}</div></div>
+    <div class="mb-3"><label class="form-label">概述</label><textarea name="summary" class="form-control" rows="3" placeholder="这个节点发生了什么……"></textarea></div>
+  </div></div>
 
-  <!-- 出场人物 -->
   {% if characters %}
-  <div class="card mb-3">
-    <div class="card-header">出场人物</div>
-    <div class="card-body">
-      <div class="row row-cols-2 row-cols-md-4 g-2">
-        {% for character in characters %}
-        <div class="col">
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox"
-                   name="character_ids" value="{{ character.id }}"
-                   id="char-{{ character.id }}">
-            <label class="form-check-label" for="char-{{ character.id }}">
-              {{ character.name }}
-            </label>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-  </div>
+  <div class="card mb-3"><div class="card-header">出场人物</div><div class="card-body"><div class="row row-cols-2 row-cols-md-4 g-2">{% for c in characters %}<div class="col"><div class="form-check"><input class="form-check-input" type="checkbox" name="character_ids" value="{{ c.id }}" id="char-{{ c.id }}"><label class="form-check-label" for="char-{{ c.id }}">{{ c.name }}</label></div></div>{% endfor %}</div></div></div>
   {% endif %}
 
-  <!-- 自定义词条（支持伏笔标记） -->
-  <div class="card mb-3">
-    <div class="card-header d-flex justify-content-between align-items-center">
-      自定义词条
-      <button type="button" class="btn btn-sm btn-outline-primary"
-              onclick="addField('fields-container', true)">+ 添加</button>
-    </div>
-    <div class="card-body">
-      <div id="fields-container">
-        <p class="text-muted mb-0 small" id="no-fields-hint">
-          可添加伏笔、转折、悬念等词条，支持标记提醒。
-        </p>
-      </div>
-    </div>
-  </div>
+  <div class="card mb-3"><div class="card-header d-flex justify-content-between align-items-center">描述卡片<button type="button" class="btn btn-sm btn-outline-primary" onclick="addCard()">+ 新建卡片</button></div><div class="card-body" id="cards-container"><p class="text-muted mb-0 small" id="no-cards-hint">可添加伏笔、转折、悬念等卡片，支持标记提醒</p></div></div>
 
-  <div class="d-flex gap-2">
-    <button type="submit" class="btn btn-primary">保存节点</button>
-    <a href="{{ url_for('plots.index', book_id=book.id) }}" class="btn btn-outline-secondary">取消</a>
-  </div>
+  <div class="d-flex gap-2"><button type="submit" class="btn btn-primary">保存节点</button><a href="{{ url_for('books.index') }}" class="btn btn-outline-secondary">取消</a></div>
 </form>
-</div>
-</div>
+</div></div>
+{% endblock %}
+{% block scripts %}
+<script>
+function addCard(){const h=document.getElementById('no-cards-hint');if(h)h.style.display='none';const d=document.createElement('div');d.style.cssText='background:#f9f9f9;border:1px solid #e0e0e0;border-radius:4px;padding:0.8rem;margin-bottom:0.6rem;';d.innerHTML='<div class="d-flex justify-content-between align-items-start mb-2"><input type="text" name="field_name" class="form-control form-control-sm" placeholder="卡片标题" style="width:60%;font-weight:500;"><button type="button" class="btn btn-sm btn-ghost" onclick="this.closest(\'div\').remove()" style="font-size:1rem;line-height:1;">×</button></div><div class="row mt-2"><div class="col-md-8"><textarea name="field_value" class="form-control form-control-sm" rows="2" placeholder="卡片内容..."></textarea></div><div class="col-md-4"><div class="form-check"><input class="form-check-input" type="checkbox" name="field_flagged" value="" id="flag-new"><label class="form-check-label small text-muted" for="flag-new">标记为伏笔</label></div></div></div>';document.getElementById('cards-container').appendChild(d);}
+</script>
 {% endblock %}

@@ -1,45 +1,19 @@
 {% extends 'base.html' %}
-{% block title %}新增世界观设定{% endblock %}
-
+{% block title %}新增世界观设定 · MyNovel{% endblock %}
 {% block content %}
-<div class="row justify-content-center">
-<div class="col-md-7">
+<div class="row justify-content-center"><div class="col-md-7">
 <h2 class="mb-4">新增世界观设定</h2>
 <form method="POST">
-  <div class="card mb-3">
-    <div class="card-body">
-      <div class="mb-3">
-        <label class="form-label">标题 <span class="text-danger">*</span></label>
-        <input type="text" name="title" class="form-control" required placeholder="如：龙族语言体系、魔法禁忌…">
-      </div>
-      <div class="mb-3">
-        <label class="form-label">分类</label>
-        <select name="category" class="form-select">
-          {% for cat in categories %}
-          <option value="{{ cat }}">{{ cat }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">关联书目（可选）</label>
-        <select name="book_id" class="form-select">
-          <option value="">通用（不绑定书目）</option>
-          {% for book in books %}
-          <option value="{{ book.id }}" {% if preselected_book_id == book.id %}selected{% endif %}>{{ book.title }}</option>
-          {% endfor %}
-        </select>
-      </div>
-      <div class="mb-3">
-        <label class="form-label">内容</label>
-        <textarea name="content" class="form-control" rows="8" placeholder="详细描述这条设定…"></textarea>
-      </div>
-    </div>
-  </div>
-  <div class="d-flex gap-2">
-    <button type="submit" class="btn btn-primary">保存</button>
-    <a href="{{ url_for('world.index') }}" class="btn btn-outline-secondary">取消</a>
-  </div>
+  <div class="card mb-3"><div class="card-body">
+    <div class="mb-3"><label class="form-label">标题 <span class="text-danger">*</span></label><input type="text" name="title" class="form-control" required placeholder="如：龙族语言体系、魔法禁忌…"></div>
+    <div class="row"><div class="col-md-6 mb-3"><label class="form-label">分类</label><select name="category" class="form-select">{% for cat in categories %}<option value="{{ cat }}">{{ cat }}</option>{% endfor %}</select></div><div class="col-md-6 mb-3"><label class="form-label">关联书目</label><select name="book_id" class="form-select"><option value="">通用</option>{% for book in books %}<option value="{{ book.id }}" {% if preselected_book_id==book.id %}selected{% endif %}>{{ book.title }}</option>{% endfor %}</select></div></div>
+    <div class="mb-3"><label class="form-label">概述</label><textarea name="content" class="form-control" rows="3" placeholder="简要概述…"></textarea></div>
+  </div></div>
+  <div class="card mb-3"><div class="card-header d-flex justify-content-between align-items-center">描述卡片<button type="button" class="btn btn-sm btn-outline-primary" onclick="addCard()">+ 新建卡片</button></div><div class="card-body" id="cards-container"><p class="text-muted mb-0 small" id="no-cards-hint">可添加多张卡片，如历史渊源、具体规则、相关传说…</p></div></div>
+  <div class="d-flex gap-2"><button type="submit" class="btn btn-primary">保存</button><a href="{{ url_for('books.index') }}" class="btn btn-outline-secondary">取消</a></div>
 </form>
-</div>
-</div>
+</div></div>
+{% endblock %}
+{% block scripts %}
+<script>function addCard(){const h=document.getElementById('no-cards-hint');if(h)h.style.display='none';const d=document.createElement('div');d.style.cssText='background:#f9f9f9;border:1px solid #e0e0e0;border-radius:4px;padding:0.8rem;margin-bottom:0.6rem;';d.innerHTML='<div class="d-flex justify-content-between align-items-start mb-2"><input type="text" name="field_name" class="form-control form-control-sm" placeholder="卡片标题" style="width:60%;font-weight:500;"><button type="button" class="btn btn-sm btn-ghost" onclick="this.closest(\'div\').remove()" style="font-size:1rem;line-height:1;">×</button></div><textarea name="field_value" class="form-control form-control-sm" rows="3" placeholder="卡片内容..."></textarea>';document.getElementById('cards-container').appendChild(d);}</script>
 {% endblock %}

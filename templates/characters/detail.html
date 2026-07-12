@@ -1,90 +1,92 @@
 {% extends 'base.html' %}
-{% block title %}{{ character.name }}{% endblock %}
+{% block title %}{{ character.name }} · MyNovel{% endblock %}
 
 {% block content %}
 <nav class="breadcrumb mb-3">
   <span class="breadcrumb-item"><a href="{{ url_for('books.index') }}">书架</a></span>
   {% if character.book %}
-  <span class="breadcrumb-item"><a href="{{ url_for('books.detail', id=character.book.id) }}">{{ character.book.title }}</a></span>
+  <span class="breadcrumb-item"><a href="{{ url_for('books.index') }}">{{ character.book.title }}</a></span>
   {% endif %}
   <span class="breadcrumb-item active">{{ character.name }}</span>
 </nav>
 
 <div class="page-header">
   <div>
-    <h2 class="mb-0">{{ character.name }}</h2>
-    {% if character.alias %}<p class="text-muted mb-0" style="font-size:0.95rem;">{{ character.alias }}</p>{% endif %}
+    <h2 style="margin:0;">{{ character.name }}</h2>
+    {% if character.alias %}<p class="text-muted mb-0" style="font-size:0.9rem;">{{ character.alias }}</p>{% endif %}
   </div>
   <div class="d-flex gap-2">
-    <a href="{{ url_for('characters.edit', id=character.id) }}" class="btn btn-outline-primary">编辑</a>
-    <form method="POST" action="{{ url_for('characters.delete', id=character.id) }}"
-          onsubmit="return confirm('确定删除「{{ character.name }}」？此操作不可撤销。')">
+    <a href="{{ url_for('characters.edit', id=character.id) }}" class="btn btn-outline-secondary">编辑</a>
+    <form method="POST" action="{{ url_for('characters.delete', id=character.id) }}" onsubmit="return confirm('确定删除「{{ character.name }}」？此操作不可撤销。')" class="d-inline">
       <button type="submit" class="btn btn-outline-danger">删除</button>
     </form>
   </div>
 </div>
 
 <div class="row g-4">
-  <!-- 左：图片 -->
+  <!-- 左侧：图片 -->
   <div class="col-md-4">
     <div class="char-gallery">
       {% if character.images %}
         {% for image in character.images %}
-        <img src="{{ url_for('static', filename='uploads/' + image.filename) }}">
+        <img src="{{ url_for('static', filename='uploads/' + image.filename) }}" alt="{{ character.name }}">
         {% endfor %}
       {% else %}
-        <div class="char-gallery-placeholder">✦</div>
+        <div class="char-gallery-placeholder">{{ character.name[0] }}</div>
       {% endif %}
     </div>
   </div>
 
-  <!-- 右：信息 -->
+  <!-- 右侧：信息卡片 -->
   <div class="col-md-8">
+    <!-- 基本信息卡片 -->
     <div class="card mb-3">
       <div class="card-header">基本信息</div>
       <div class="card-body">
-        <table class="info-table">
-          {% if character.book %}
-          <tr>
-            <td>所属书目</td>
-            <td><a href="{{ url_for('books.detail', id=character.book.id) }}">{{ character.book.title }}</a></td>
-          </tr>
-          {% endif %}
-          {% if character.age %}
-          <tr><td>年龄</td><td>{{ character.age }}</td></tr>
-          {% endif %}
-          {% if character.gender %}
-          <tr><td>性别</td><td>{{ character.gender }}</td></tr>
-          {% endif %}
-          {% if character.description %}
-          <tr><td>描述</td><td>{{ character.description }}</td></tr>
-          {% endif %}
-        </table>
+        {% if character.book %}
+        <div class="mb-2">
+          <span style="color:#999;font-size:0.78rem;">所属书目</span>
+          <a href="{{ url_for('books.index') }}" class="tag tag-book ms-2">{{ character.book.title }}</a>
+          <a href="{{ url_for('characters.edit', id=character.id) }}#book-select" class="btn btn-sm btn-ghost" style="font-size:0.65rem;" title="迁移到其他书">迁移 →</a>
+        </div>
+        {% else %}
+        <div class="mb-2">
+          <span class="tag tag-unassigned">未分类</span>
+          <a href="{{ url_for('characters.edit', id=character.id) }}" class="btn btn-sm btn-ghost" style="font-size:0.65rem;">归属到一本书</a>
+        </div>
+        {% endif %}
+        {% if character.age %}<div class="mb-2"><span style="color:#999;font-size:0.78rem;">年龄</span> <span style="margin-left:0.5rem;">{{ character.age }}</span></div>{% endif %}
+        {% if character.gender %}<div class="mb-2"><span style="color:#999;font-size:0.78rem;">性别</span> <span style="margin-left:0.5rem;">{{ character.gender }}</span></div>{% endif %}
+        {% if character.description %}<div class="mb-0"><span style="color:#999;font-size:0.78rem;">描述</span> <p class="mt-1 mb-0" style="line-height:1.8;">{{ character.description }}</p></div>{% endif %}
         {% if not character.book and not character.age and not character.gender and not character.description %}
-        <p class="text-muted mb-0 small">暂无信息</p>
+        <p class="text-muted mb-0 small">暂无基本信息</p>
         {% endif %}
       </div>
     </div>
 
+    <!-- 自定义词条卡片 -->
     {% if character.custom_fields %}
     <div class="card mb-3">
       <div class="card-header">自定义词条</div>
       <div class="card-body">
-        <table class="info-table">
+        <div class="row g-2">
           {% for field in character.custom_fields %}
-          <tr>
-            <td>{{ field.field_name }}</td>
-            <td>{{ field.field_value }}</td>
-          </tr>
+          <div class="col-sm-6">
+            <div style="background:#f8f8f8;border:1px solid #eee;border-radius:3px;padding:0.5rem 0.7rem;">
+              <div style="font-size:0.7rem;color:#999;margin-bottom:0.15rem;">{{ field.field_name }}</div>
+              <div style="font-size:0.85rem;">{{ field.field_value }}</div>
+            </div>
+          </div>
           {% endfor %}
-        </table>
+        </div>
       </div>
     </div>
     {% endif %}
-  </div>
-</div>
 
-<div class="mt-3">
-  <a href="{{ url_for('characters.index') }}" class="btn btn-outline-secondary">← 返回人物列表</a>
+    <!-- 操作 -->
+    <div class="d-flex gap-2">
+      <a href="{{ url_for('books.index') }}" class="btn btn-sm btn-outline-secondary">返回书架</a>
+    </div>
+  </div>
 </div>
 {% endblock %}

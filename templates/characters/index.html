@@ -1,64 +1,17 @@
 {% extends 'base.html' %}
-{% block title %}{% if current_book %}{{ current_book.title }} · 人物{% else %}全部人物{% endif %}{% endblock %}
-{% block nav_chars %}active-nav{% endblock %}
-
+{% block title %}人物 · MyNovel{% endblock %}
 {% block content %}
-<div class="page-header">
-  <div>
-    <h2>{% if current_book %}{{ current_book.title }} · 人物{% else %}全部人物{% endif %}</h2>
-    <p class="text-muted mb-0" style="font-size:0.88rem;">{{ characters|length }} 位人物</p>
+<div class="app-container" style="text-align:center;padding-top:4rem;">
+  <h2 style="font-weight:400;margin-bottom:1rem;">人物</h2>
+  <p style="color:#999;margin-bottom:1.5rem;">人物浏览已整合到书架中。请从书架打开一本书，在书页内查看人物卡牌。</p>
+  <a href="{{ url_for('books.index') }}" class="btn btn-primary">前往书架</a>
+  {% if books %}
+  <div style="margin-top:2rem;text-align:left;max-width:500px;margin-left:auto;margin-right:auto;">
+    <p style="font-size:0.8rem;color:#999;margin-bottom:0.5rem;">或者直接打开一本书：</p>
+    {% for book in books %}
+    <a href="{{ url_for('books.index') }}" class="btn btn-sm btn-outline-secondary m-1" style="margin:0.15rem;">{{ book.title }}</a>
+    {% endfor %}
   </div>
-  <a href="{{ url_for('characters.create', book_id=current_book.id if current_book else '') }}"
-     class="btn btn-primary">+ 新建人物</a>
+  {% endif %}
 </div>
-
-{% if books %}
-<div class="filter-bar">
-  <a href="{{ url_for('characters.index') }}"
-     class="filter-btn {% if not current_book %}active{% endif %}">全部</a>
-  {% for book in books %}
-  <a href="{{ url_for('characters.index', book_id=book.id) }}"
-     class="filter-btn {% if current_book and current_book.id == book.id %}active{% endif %}">
-    {{ book.title }}
-  </a>
-  {% endfor %}
-</div>
-{% endif %}
-
-{% if characters %}
-<div class="row row-cols-2 row-cols-md-3 row-cols-lg-4 g-4">
-  {% for character in characters %}
-  <div class="col">
-    <div class="char-card h-100">
-      {% if character.images %}
-        <img src="{{ url_for('static', filename='uploads/' + character.images[0].filename) }}"
-             class="char-card-img">
-      {% else %}
-        <div class="char-card-placeholder">
-          <span class="char-card-placeholder-icon">✦</span>
-        </div>
-      {% endif %}
-      <div class="char-card-body">
-        <div class="char-card-name">{{ character.name }}</div>
-        {% if character.alias %}<div class="char-card-alias">{{ character.alias }}</div>{% endif %}
-        {% if character.book %}
-          <span class="tag tag-book mt-1 d-inline-block">{{ character.book.title }}</span>
-        {% else %}
-          <span class="tag tag-unassigned mt-1 d-inline-block">未分类</span>
-        {% endif %}
-      </div>
-      <div class="char-card-footer">
-        <a href="{{ url_for('characters.detail', id=character.id) }}" class="btn btn-sm btn-outline-primary">详情</a>
-        <a href="{{ url_for('characters.edit', id=character.id) }}" class="btn btn-sm btn-outline-secondary">编辑</a>
-      </div>
-    </div>
-  </div>
-  {% endfor %}
-</div>
-{% else %}
-<div class="empty-state">
-  <div class="empty-state-icon">✦</div>
-  <p>没有找到人物</p>
-</div>
-{% endif %}
 {% endblock %}

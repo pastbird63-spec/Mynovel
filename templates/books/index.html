@@ -1,78 +1,304 @@
 {% extends 'base.html' %}
-{% block title %}书架{% endblock %}
-{% block nav_books %}active-nav{% endblock %}
-
+{% block title %}MyNovel{% endblock %}
 {% block content %}
-<!-- 穆夏装饰横幅 -->
-<div class="mucha-banner">
-  <svg viewBox="0 0 800 48" xmlns="http://www.w3.org/2000/svg" style="width:100%;max-width:700px;height:48px;">
-    <path d="M0,24 Q50,8 100,24 Q150,40 200,24 Q250,8 300,24 Q350,40 400,24 Q450,8 500,24 Q550,40 600,24 Q650,8 700,24 Q750,40 800,24" stroke="#b5746a" stroke-width="1" fill="none" opacity="0.5"/>
-    <path d="M0,24 Q50,36 100,24 Q150,12 200,24 Q250,36 300,24 Q350,12 400,24 Q450,36 500,24 Q550,12 600,24 Q650,36 700,24 Q750,12 800,24" stroke="#b8943f" stroke-width="0.5" fill="none" opacity="0.35"/>
-    <circle cx="100" cy="24" r="4" fill="#b5746a" opacity="0.5"/>
-    <circle cx="200" cy="24" r="3" fill="#b8943f" opacity="0.4"/>
-    <circle cx="300" cy="24" r="4" fill="#b5746a" opacity="0.5"/>
-    <circle cx="400" cy="24" r="5" fill="#b8943f" opacity="0.6"/>
-    <circle cx="500" cy="24" r="4" fill="#b5746a" opacity="0.5"/>
-    <circle cx="600" cy="24" r="3" fill="#b8943f" opacity="0.4"/>
-    <circle cx="700" cy="24" r="4" fill="#b5746a" opacity="0.5"/>
-    <!-- 小叶片 -->
-    <ellipse cx="100" cy="18" rx="5" ry="8" fill="#b5746a" opacity="0.12" transform="rotate(-30,100,18)"/>
-    <ellipse cx="300" cy="30" rx="5" ry="8" fill="#b5746a" opacity="0.12" transform="rotate(30,300,30)"/>
-    <ellipse cx="500" cy="18" rx="5" ry="8" fill="#b5746a" opacity="0.12" transform="rotate(-30,500,18)"/>
-    <ellipse cx="700" cy="30" rx="5" ry="8" fill="#b5746a" opacity="0.12" transform="rotate(30,700,30)"/>
-  </svg>
-</div>
-<div class="page-header">
-  <div>
-    <h2>书架</h2>
-    <p class="text-muted mb-0" style="font-size:0.88rem;">管理你的每一个故事世界</p>
+<script>
+window.BOOKS_DATA = [
+{% for item in books_data %}
+  { id:{{ item.book.id }}, title:{{ item.book.title|tojson }}, genre:{{ (item.book.genre or '')|tojson }}, description:{{ (item.book.description or '')|tojson }}, created_at:{{ item.book.created_at.strftime('%Y-%m')|tojson }},
+    characters:[{% for c in item.book.characters %}{ id:{{c.id}},name:{{c.name|tojson}},alias:{{(c.alias or '')|tojson}},age:{{(c.age or '')|tojson}},gender:{{(c.gender or '')|tojson}},description:{{(c.description or '')|tojson}},images:[{% for img in c.images %}{filename:{{img.filename|tojson}}}{% if not loop.last %},{% endif %}{% endfor %}],custom_fields:[{% for f in c.custom_fields %}{name:{{f.field_name|tojson}},value:{{f.field_value|tojson}}}{% if not loop.last %},{% endif %}{% endfor %}]}{% if not loop.last %},{% endif %}{% endfor %}],
+    plot_nodes:[{% for pn in item.book.plot_nodes %}{ id:{{pn.id}},parent_id:{{pn.parent_id or 'null'}},title:{{pn.title|tojson}},order:{{pn.order}},time_in_story:{{(pn.time_in_story or '')|tojson}},location:{{(pn.location or '')|tojson}},summary:{{(pn.summary or '')|tojson}},characters:[{% for pc in pn.plot_characters %}{id:{{pc.character.id}},name:{{pc.character.name|tojson}}}{% if not loop.last %},{% endif %}{% endfor %}],custom_fields:[{% for f in pn.custom_fields %}{name:{{f.field_name|tojson}},value:{{f.field_value|tojson}},is_flagged:{{'true' if f.is_flagged else 'false'}}}{% if not loop.last %},{% endif %}{% endfor %}]}{% if not loop.last %},{% endif %}{% endfor %}],
+    world_settings:[{% for ws in item.world_settings %}{ id:{{ws.id}},category:{{ws.category|tojson}},title:{{ws.title|tojson}},content:{{(ws.content or '')|tojson}},fields:[{% for f in ws.fields %}{name:{{f.field_name|tojson}},value:{{f.field_value|tojson}}}{% if not loop.last %},{% endif %}{% endfor %}]}{% if not loop.last %},{% endif %}{% endfor %}]
+  }{% if not loop.last %},{% endif %}
+{% endfor %}
+];
+</script>
+
+<div class="app-container" id="shelf-view">
+  <div class="shelf-header">
+    <h1>MyNovel</h1>
+    <div class="shelf-header-actions">
+      <button class="btn btn-sm btn-outline-secondary" id="btn-add-shelf-row">+ 加一行</button>
+      <a href="{{ url_for('books.create') }}" class="btn btn-sm btn-primary">添加书</a>
+    </div>
   </div>
-  <a href="{{ url_for('books.create') }}" class="btn btn-primary">+ 新建书目</a>
+  <input type="text" class="shelf-search" id="shelf-search" placeholder="搜索书架..." autocomplete="off">
+  <div class="shelf-all" id="shelf-all"></div>
+  {% if not books_data %}<div class="shelf-empty-state"><p>书架是空的，点击「添加书」开始</p></div>{% endif %}
 </div>
 
-{% if unassigned_count > 0 %}
-<div class="alert alert-info mb-4">
-  有 <strong>{{ unassigned_count }}</strong> 个人物尚未归属书目。
-  <a href="{{ url_for('characters.index') }}" class="fw-bold" style="color:inherit;">去查看 →</a>
-</div>
-{% endif %}
-
-{% if books %}
-<div class="row row-cols-1 row-cols-md-2 g-4">
-  {% for book in books %}
-  <div class="col">
-    <div class="card book-card hover-card h-100">
-      <div class="d-flex h-100">
-        <div class="book-card-spine"></div>
-        <div class="book-card-inner d-flex flex-column">
-          <div class="flex-grow-1">
-            <div class="book-card-title">{{ book.title }}</div>
-            <div class="book-card-meta">
-              {% if book.genre %}<span class="tag tag-genre me-2">{{ book.genre }}</span>{% endif %}
-              {{ book.created_at.strftime('%Y年%m月') }}
-            </div>
-            <div class="book-card-desc">
-              {{ (book.description or '暂无简介')[:90] }}{% if book.description and book.description|length > 90 %}…{% endif %}
-            </div>
-          </div>
-          <div class="d-flex justify-content-between align-items-center mt-2">
-            <div class="book-card-stats">
-              <span>👤 {{ book.characters|length }}</span>
-              <span>📋 {{ book.plot_nodes|length }}</span>
-            </div>
-            <a href="{{ url_for('books.detail', id=book.id) }}" class="btn btn-sm btn-outline-primary">进入 →</a>
-          </div>
-        </div>
+<div class="book-view" id="book-view">
+  <div class="book-topbar">
+    <a class="book-back" id="btn-back" href="#">&larr; 书架</a>
+    <span class="book-topbar-title" id="book-topbar-title"></span>
+    <span style="flex:1"></span>
+    <a href="#" id="btn-edit-book" class="btn btn-sm btn-outline-secondary">编辑</a>
+  </div>
+  <div class="open-book-wrap">
+    <div class="open-book" id="open-book">
+      <div class="open-book-crease"></div>
+      <div class="book-page book-page-left" id="book-page-left"><div id="page-left-content"></div></div>
+      <div class="book-page book-page-right" id="book-page-right"><div id="page-right-content"></div></div>
+      <div class="page-tabs" id="page-tabs">
+        <div class="page-tab page-tab-char active" data-tab="char">人物</div>
+        <div class="page-tab page-tab-plot" data-tab="plot">时间线</div>
+        <div class="page-tab page-tab-world" data-tab="world">世界观</div>
       </div>
     </div>
   </div>
-  {% endfor %}
+  <div class="pagination-bar" id="pagination-bar"></div>
 </div>
+{% endblock %}
 
-{% else %}
-<div class="empty-state">
-  <div class="empty-state-icon">✦</div>
-  <p>书架还是空的<br><a href="{{ url_for('books.create') }}">新建第一本书</a>，开始创作</p>
-</div>
-{% endif %}
+{% block scripts %}
+<script src="{{ url_for('static', filename='js/timeline.js') }}"></script>
+<script>
+(function() {
+  const DATA = window.BOOKS_DATA || [];
+  const PP = 4;
+  const LS_ROWS = 'mynovel-rows', LS_COLORS = 'mynovel-colors', LS_OPEN = 'mynovel-open-book';
+  const LS_CHAR_ORDER = 'mynovel-char-order-', LS_WORLD_ORDER = 'mynovel-world-order-';
+  let currentBook = null, currentTab = 'char', currentSpread = 0;
+  let rows = [], spineColors = {};
+
+  function init() {
+    try { spineColors = JSON.parse(localStorage.getItem(LS_COLORS)) || {}; } catch(e) { spineColors = {}; }
+    try { rows = JSON.parse(localStorage.getItem(LS_ROWS)); } catch(e) { rows = null; }
+    if (!rows || !Array.isArray(rows) || rows.length===0) {
+      rows = []; const ids = DATA.map(b=>b.id);
+      for (let i=0;i<ids.length;i+=6) rows.push(ids.slice(i,i+6));
+    }
+    const valid = new Set(DATA.map(b=>b.id));
+    rows = rows.map(r=>r.filter(id=>valid.has(id))).filter(r=>r.length>0);
+    const placed = new Set(rows.flat());
+    DATA.forEach(b=>{ if(!placed.has(b.id)){ if(rows.length===0)rows.push([]); rows[rows.length-1].push(b.id); } });
+    saveRows(); renderShelf();
+
+    const savedId = localStorage.getItem(LS_OPEN);
+    const params = new URLSearchParams(window.location.search);
+    const urlBookId = parseInt(params.get('book_id')), urlTab = params.get('tab'), urlHL = parseInt(params.get('highlight'));
+    if (urlBookId) {
+      const bk = DATA.find(b=>b.id===urlBookId);
+      if (bk) { setTimeout(()=>openBook(bk,urlTab||undefined,urlHL||0),150); window.history.replaceState({},'','/books/'); }
+    } else if (savedId) {
+      const bk = DATA.find(b=>b.id===parseInt(savedId));
+      if (bk) setTimeout(()=>openBook(bk),150);
+    }
+    document.getElementById('shelf-search').addEventListener('input', onSearch);
+    document.getElementById('shelf-search').addEventListener('keydown', function(e){ if(e.key==='Escape'){this.value='';onSearch();} });
+  }
+  function saveRows(){ localStorage.setItem(LS_ROWS, JSON.stringify(rows)); }
+  function saveColors(){ localStorage.setItem(LS_COLORS, JSON.stringify(spineColors)); }
+
+  function renderShelf(filter) {
+    const c = document.getElementById('shelf-all');
+    if (DATA.length===0) { c.innerHTML=''; return; }
+    let h = '';
+    rows.forEach((rowIds, ri)=>{
+      h += '<div class="shelf-row-wrap" data-row="'+ri+'"><div class="shelf-row-books" data-row="'+ri+'">';
+      rowIds.forEach(id=>{
+        const bk = DATA.find(b=>b.id===id); if(!bk) return;
+        const cl = spineColors[id]||'';
+        const hid = filter && !bk.title.toLowerCase().includes(filter) ? ' filtered-out' : '';
+        h += '<div class="shelf-spine'+hid+'" data-book-id="'+id+'" data-color="'+cl+'" draggable="true" title="'+esc(bk.title)+' (右键切换颜色)">'+esc(bk.title)+'</div>';
+      });
+      h += '<a href="/books/create" class="shelf-spine-add">+</a></div><div class="shelf-row-line"></div></div>';
+    });
+    h += '<div class="shelf-row-add" id="btn-add-row-bottom">+ 添加一行书架</div>';
+    c.innerHTML = h;
+    c.querySelectorAll('.shelf-spine').forEach(sp=>{
+      sp.addEventListener('click', function(){ const bk=DATA.find(b=>b.id===parseInt(this.dataset.bookId)); if(bk) openBook(bk); });
+      sp.addEventListener('contextmenu', function(e){ e.preventDefault(); cycleColor(this); });
+      sp.addEventListener('dragstart', dragStart); sp.addEventListener('dragend', dragEnd);
+    });
+    c.querySelectorAll('.shelf-row-books').forEach(rw=>{ rw.addEventListener('dragover', dragOver); rw.addEventListener('drop', onDrop); });
+    document.getElementById('btn-add-row-bottom').addEventListener('click', addRow);
+    document.getElementById('btn-add-shelf-row').addEventListener('click', addRow);
+  }
+
+  function cycleColor(el) {
+    const id = parseInt(el.dataset.bookId); const cy=['','light','mid','dark'];
+    let i = cy.indexOf(spineColors[id]||''); i=(i+1)%cy.length; spineColors[id]=cy[i]; el.dataset.color=cy[i]; saveColors();
+  }
+  let dragId = null;
+  function dragStart(e){ dragId=parseInt(this.dataset.bookId); this.classList.add('dragging'); e.dataTransfer.effectAllowed='move'; }
+  function dragEnd(e){ this.classList.remove('dragging'); dragId=null; }
+  function dragOver(e){ e.preventDefault(); e.dataTransfer.dropEffect='move'; }
+  function onDrop(e){
+    e.preventDefault(); const tr=parseInt(this.dataset.row); if(dragId===null||isNaN(tr)) return;
+    rows.forEach(r=>{const i=r.indexOf(dragId); if(i>=0)r.splice(i,1);});
+    rows=rows.filter(r=>r.length>0); if(!rows[tr])rows[tr]=[]; rows[tr].push(dragId); saveRows(); renderShelf();
+  }
+  function addRow(){ rows.push([]); saveRows(); renderShelf(); }
+  function onSearch(){ const q=document.getElementById('shelf-search').value.trim().toLowerCase();
+    document.querySelectorAll('.shelf-spine').forEach(s=>{ s.classList.toggle('filtered-out', q.length>0&&!(s.title||'').toLowerCase().includes(q)); }); }
+
+  // ═══════════ 打开书 ═══════════
+  let pendingHL = 0;
+  function openBook(book, tab, hl) {
+    currentBook=book; currentTab=tab||'char'; currentSpread=0; pendingHL=hl||0;
+    document.querySelectorAll('#page-tabs .page-tab').forEach(t=>t.classList.remove('active'));
+    document.querySelector('#page-tabs [data-tab="'+currentTab+'"]').classList.add('active');
+    document.getElementById('book-topbar-title').textContent=book.title;
+    document.getElementById('btn-edit-book').href='/books/'+book.id+'/edit';
+    document.getElementById('shelf-view').style.display='none';
+    document.getElementById('book-view').style.display='block';
+    renderContent(); window.scrollTo(0,0); localStorage.setItem(LS_OPEN, book.id);
+  }
+  function closeBook() {
+    currentBook=null; document.getElementById('shelf-view').style.display=''; document.getElementById('book-view').style.display='none';
+    window.scrollTo(0,0); localStorage.removeItem(LS_OPEN);
+  }
+  document.getElementById('btn-back').addEventListener('click',function(e){e.preventDefault();closeBook();});
+  document.querySelectorAll('#page-tabs .page-tab').forEach(tab=>{
+    tab.addEventListener('click',function(){ currentTab=this.dataset.tab; currentSpread=0; resetBookPages();
+      document.querySelectorAll('#page-tabs .page-tab').forEach(t=>t.classList.remove('active')); this.classList.add('active'); renderContent(); });
+  });
+  function resetBookPages() {
+    const l=document.getElementById('book-page-left'), r=document.getElementById('book-page-right');
+    l.style.flex='';l.style.width='';l.style.padding='';l.style.overflow='';l.style.maxHeight='';
+    r.style.flex='';r.style.width='';r.style.padding='';r.style.overflow='';r.style.maxHeight='';
+    const w=document.getElementById('plot-canvas-wrap'); if(w)w.remove();
+    const cr=document.querySelector('.open-book-crease'); if(cr)cr.style.display='';
+    const tb=document.getElementById('page-tabs'); if(tb)tb.style.zIndex='';
+  }
+
+  // ═══════════ 翻页 ═══════════
+  window.addPagination = function(totalSpreads) {
+    const bar = document.getElementById('pagination-bar'); bar.innerHTML='';
+    if (currentSpread>0) {
+      const prev = ce('a','page-turn','← 上一页'); prev.href='#';
+      prev.addEventListener('click',function(e){e.preventDefault();if(currentSpread>0){currentSpread--;renderContent();}});
+      bar.appendChild(prev);
+    }
+    bar.appendChild(ce('span','page-indicator',(currentSpread+1)+' / '+totalSpreads));
+    if (currentSpread<totalSpreads-1) {
+      const next = ce('a','page-turn','下一页 →'); next.href='#';
+      next.addEventListener('click',function(e){e.preventDefault();if(currentSpread<totalSpreads-1){currentSpread++;renderContent();}});
+      bar.appendChild(next);
+    }
+  };
+  function ce(tag,cls,txt){const e=document.createElement(tag);e.className=cls;if(txt)e.textContent=txt;return e;}
+
+  // ═══════════ 拖拽排序辅助 ═══════════
+  function getOrdered(list, key) {
+    const stored = localStorage.getItem(key);
+    if (stored) { try { const ord=JSON.parse(stored); const o=[]; const rem=[...list];
+      ord.forEach(id=>{const i=rem.findIndex(x=>x.id===id);if(i>=0){o.push(rem[i]);rem.splice(i,1);}}); return o.concat(rem); } catch(e){} }
+    return list;
+  }
+  function saveOrder(key,list){ localStorage.setItem(key, JSON.stringify(list.map(x=>x.id))); }
+  function makeDraggable(container, list, key, rebuildFn) {
+    let dragIdx=-1;
+    container.querySelectorAll('.draggable-card').forEach((card,i)=>{
+      card.addEventListener('dragstart',function(e){dragIdx=i;this.classList.add('dragging');e.dataTransfer.effectAllowed='move';});
+      card.addEventListener('dragend',function(e){this.classList.remove('dragging');container.querySelectorAll('.draggable-card').forEach(c=>c.classList.remove('drag-over'));});
+      card.addEventListener('dragover',function(e){e.preventDefault();e.dataTransfer.dropEffect='move';this.classList.add('drag-over');});
+      card.addEventListener('dragleave',function(e){this.classList.remove('drag-over');});
+      card.addEventListener('drop',function(e){e.preventDefault();this.classList.remove('drag-over');if(dragIdx<0||dragIdx===i)return;const item=list.splice(dragIdx,1)[0];list.splice(i,0,item);saveOrder(key,list);rebuildFn();});
+    });
+  }
+
+  // ═══════════ 人物 ═══════════
+  function renderChars(searchQ) {
+    var q = (searchQ || '').toLowerCase();
+    const key=LS_CHAR_ORDER+currentBook.id;
+    let chars=getOrdered([...currentBook.characters],key);
+    if (q) chars = chars.filter(function(c){ return searchCharsFn(c, q); });
+    const addUrl='/characters/create?book_id='+currentBook.id;
+    const L=document.getElementById('page-left-content'), R=document.getElementById('page-right-content');
+    const origChars = getOrdered([...currentBook.characters], key);
+    const searchBox = getSearchBox('char', '搜索人物...', origChars, searchCharsFn, renderChars);
+    // 标题
+    var leftHtml = '<div class="book-page-title">'+(currentSpread===0?'人物':'')+'</div>';
+    if (currentSpread===0) leftHtml += '<a href="'+addUrl+'" class="book-page-add">+ 添加</a>';
+    // 搜索框在标题下面
+    leftHtml += '<div id="char-search-slot"></div>';
+    if (chars.length===0) {
+      leftHtml += '<p style="color:#999;font-size:0.82rem;">'+(q?'没有匹配项':'暂无人物')+'</p>';
+      L.innerHTML=leftHtml; R.innerHTML='';
+      document.getElementById('char-search-slot').appendChild(searchBox);
+      addPagination(1); return;
+    }
+    if (pendingHL) { const idx=chars.findIndex(c=>c.id===pendingHL); if(idx>=0) currentSpread=Math.floor(idx/(PP*2)); }
+    const totalSpreads=Math.ceil(chars.length/(PP*2));
+    if(currentSpread>=totalSpreads)currentSpread=totalSpreads-1;
+    const start=currentSpread*PP*2, pageItems=chars.slice(start,start+PP*2);
+    leftHtml += buildTarot(pageItems.slice(0,PP),'','');
+    L.innerHTML=leftHtml; R.innerHTML=buildTarot(pageItems.slice(PP),'','');
+    document.getElementById('char-search-slot').appendChild(searchBox);
+    addPagination(totalSpreads);
+    if (pendingHL) { setTimeout(()=>{const el=document.querySelector('.tarot-card[data-id="'+pendingHL+'"]');if(el){el.classList.add('highlight-flash');el.scrollIntoView({behavior:'smooth',block:'center'});}pendingHL=0;},200); }
+    [L,R].forEach(el=>makeDraggable(el,chars,key,function(){ renderChars(q); }));
+  }
+  function buildTarot(items, title, addUrl) {
+    let h=''; if(title)h+='<div class="book-page-title">'+title+'</div>'; if(addUrl)h+='<a href="'+addUrl+'" class="book-page-add">+ 添加</a>';
+    h+='<div class="tarot-grid">';
+    items.forEach(c=>{
+      const img=(c.images&&c.images.length)?'<img src="/static/uploads/'+c.images[0].filename+'" alt="" loading="lazy">':'<span class="tarot-placeholder">'+esc(c.name[0])+'</span>';
+      h+='<a href="/characters/'+c.id+'" class="tarot-card draggable-card" draggable="true" data-id="'+c.id+'"><div class="tarot-image">'+img+'</div><div class="tarot-divider"></div><div class="tarot-info"><div class="tarot-name">'+esc(c.name)+'</div>'+(c.alias?'<div class="tarot-alias">'+esc(c.alias)+'</div>':'')+'<div class="tarot-book-tag">'+esc(currentBook.title)+'</div></div></a>';
+    });
+    h+='</div>'; return h;
+  }
+
+  // ═══════════ 时间线 ═══════════
+  function renderPlot(searchQ) {
+    var addUrl='/plots/'+currentBook.id+'/create';
+    window.renderPlotCanvas(currentBook, addUrl, pendingHL, esc, getSearchBox, searchPlotFn, (searchQ||'').toLowerCase());
+  }
+
+  // ═══════════ 搜索 ═══════════
+  function renderWorld(searchQ) {
+    var q = (searchQ || '').toLowerCase();
+    const key=LS_WORLD_ORDER+currentBook.id;
+    let settings=getOrdered([...currentBook.world_settings],key);
+    if (q) settings = settings.filter(function(s){ return searchWorldFn({item:s}, q); });
+    const addUrl='/world/create?book_id='+currentBook.id;
+    const L=document.getElementById('page-left-content'), R=document.getElementById('page-right-content');
+    const grp={}; settings.forEach(s=>{if(!grp[s.category])grp[s.category]=[];grp[s.category].push(s);});
+    const flat=[]; Object.keys(grp).forEach(cat=>{grp[cat].forEach(s=>flat.push({cat,item:s}));});
+    const searchBox = getSearchBox('world', '搜索设定...', settings, searchWorldFn, renderWorld);
+    var leftHtml = '<div class="book-page-title">'+(currentSpread===0?'世界观':'')+'</div>';
+    if (currentSpread===0) leftHtml += '<a href="'+addUrl+'" class="book-page-add">+ 添加</a>';
+    leftHtml += '<div id="world-search-slot"></div>';
+    if (settings.length===0) {
+      leftHtml += '<p style="color:#999;font-size:0.82rem;">'+(q?'没有匹配项':'暂无设定')+'</p>';
+      L.innerHTML=leftHtml; R.innerHTML='';
+      document.getElementById('world-search-slot').appendChild(searchBox);
+      addPagination(1); return;
+    }
+    if (pendingHL) { const idx=flat.findIndex(x=>x.item.id===pendingHL); if(idx>=0)currentSpread=Math.floor(idx/(PP*2)); }
+    const totalSpreads=Math.ceil(flat.length/(PP*2));
+    if(currentSpread>=totalSpreads)currentSpread=totalSpreads-1;
+    const start=currentSpread*PP*2, pageItems=flat.slice(start,start+PP*2);
+    leftHtml += buildWorldPanel(pageItems.slice(0,PP),'','');
+    L.innerHTML=leftHtml; R.innerHTML=buildWorldPanel(pageItems.slice(PP),'','');
+    document.getElementById('world-search-slot').appendChild(searchBox);
+    addPagination(totalSpreads);
+    if (pendingHL) { setTimeout(()=>{const el=document.querySelector('.world-item[data-id="'+pendingHL+'"]');if(el){el.classList.add('highlight-flash');el.scrollIntoView({behavior:'smooth',block:'center'});}pendingHL=0;},200); }
+    [L,R].forEach(el=>makeDraggable(el,settings,key,function(){ renderWorld(q); }));
+  }
+  }
+  function buildWorldPanel(items, title, addUrl) {
+    if(items.length===0)return'';
+    const g={}; items.forEach(({cat,item})=>{if(!g[cat])g[cat]=[];g[cat].push(item);});
+    let h=''; if(title)h+='<div class="book-page-title">'+title+'</div>'; if(addUrl)h+='<a href="'+addUrl+'" class="book-page-add">+ 添加</a>';
+    Object.keys(g).forEach(cat=>{
+      h+='<div style="margin-bottom:0.5rem;"><div style="font-size:0.66rem;color:#999;text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.2rem;">'+esc(cat)+'</div><div class="world-grid">';
+      g[cat].forEach(s=>{
+        h+='<div class="world-item draggable-card" draggable="true" data-id="'+s.id+'"><div class="world-item-title"><a href="/world/setting/'+s.id+'" style="text-decoration:none;color:inherit;">'+esc(s.title)+'</a></div>';
+        if(s.content)h+='<div class="world-item-content">'+esc(s.content).substring(0,100)+(s.content.length>100?'...':'')+'</div>';
+        if(s.fields&&s.fields.length){ h+='<div style="margin-top:0.3rem;display:flex;flex-wrap:wrap;gap:0.2rem;">'; s.fields.forEach(f=>{h+='<span style="background:#f5f5f5;padding:0.1rem 0.4rem;border-radius:2px;font-size:0.65rem;">'+esc(f.name)+': '+esc(f.value).substring(0,40)+(f.value&&f.value.length>40?'...':'')+'</span>';}); h+='</div>'; }
+        h+='</div>';
+      });
+      h+='</div></div>';
+    });
+    return h;
+  }
+
+  function renderContent() { if(!currentBook)return; switch(currentTab){ case'char':renderChars();break; case'plot':renderPlot();break; case'world':renderWorld();break; } }
+  function esc(s){ if(!s)return''; const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+  init();
+})();
+</script>
 {% endblock %}

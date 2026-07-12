@@ -68,6 +68,7 @@ class PlotNode(db.Model):
     __tablename__ = 'plot_nodes'
     id = db.Column(db.Integer, primary_key=True)
     book_id = db.Column(db.Integer, db.ForeignKey('books.id'), nullable=True)
+    parent_id = db.Column(db.Integer, db.ForeignKey('plot_nodes.id'), nullable=True)
     title = db.Column(db.String(200), nullable=False)
     order = db.Column(db.Integer, default=0)
     time_in_story = db.Column(db.String(200))
@@ -75,6 +76,7 @@ class PlotNode(db.Model):
     summary = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
+    children = db.relationship('PlotNode', backref=db.backref('parent', remote_side=[id]), lazy=True)
     custom_fields = db.relationship('PlotField', backref='plot_node',
                                     cascade='all, delete-orphan', lazy=True)
     plot_characters = db.relationship('PlotCharacter', backref='plot_node',
@@ -114,3 +116,12 @@ class WorldSetting(db.Model):
     content = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    fields = db.relationship('WorldSettingField', backref='setting', cascade='all, delete-orphan', lazy=True)
+
+
+class WorldSettingField(db.Model):
+    __tablename__ = 'world_setting_fields'
+    id = db.Column(db.Integer, primary_key=True)
+    setting_id = db.Column(db.Integer, db.ForeignKey('world_settings.id'), nullable=False)
+    field_name = db.Column(db.String(100), nullable=False)
+    field_value = db.Column(db.Text)

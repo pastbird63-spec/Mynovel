@@ -76,14 +76,14 @@
         {% for pc in node.plot_characters %}
         <a href="{{ url_for('characters.detail', id=pc.character.id) }}"
            class="d-flex align-items-center text-decoration-none mb-2 p-2 rounded"
-           style="background: var(--parchment); color: var(--brown);">
+           style="background: var(--bg); color: var(--text);">
           {% if pc.character.images %}
             <img src="{{ url_for('static', filename='uploads/' + pc.character.images[0].filename) }}"
                  class="rounded-circle me-2"
                  style="width: 36px; height: 36px; object-fit: cover;">
           {% else %}
             <span class="me-2 rounded-circle d-flex align-items-center justify-content-center"
-                  style="width: 36px; height: 36px; background: var(--rose-light); color: var(--rose); font-size: 1rem;">✦</span>
+                  style="width: 36px; height: 36px; background: var(--border-light); color: var(--text-muted); font-size: 1rem;">✦</span>
           {% endif %}
           <span>{{ pc.character.name }}</span>
         </a>
