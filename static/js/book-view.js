@@ -19,6 +19,7 @@ function openBook(book, tab, hl) {
   if (tabEl) tabEl.classList.add('active');
   document.getElementById('book-topbar-title').textContent = book.title;
   document.getElementById('btn-edit-book').href = '/books/' + book.id + '/edit';
+  document.getElementById('btn-write-book').href = '/books/' + book.id + '/chapters';
   document.getElementById('shelf-view').style.display = 'none';
   document.getElementById('book-view').style.display = 'block';
   renderContent();
