@@ -57,6 +57,23 @@
   text-align: center; padding: 3rem 2rem; color: #bbb;
 }
 
+/* 内联新建章节表单 */
+.chapter-new-form {
+  display: flex; align-items: center; gap: 0.5rem;
+  padding: 0.5rem 0.7rem; background: var(--surface);
+  border: 2px solid #333; border-radius: var(--radius);
+  margin-bottom: 0.5rem;
+}
+.chapter-new-input {
+  flex: 1; border: none; outline: none; font-size: 0.95rem;
+  font-family: var(--font-serif); padding: 0.3rem 0;
+  color: var(--text); background: transparent;
+}
+.chapter-new-input::placeholder { color: #ccc; }
+.chapter-new-actions {
+  display: flex; gap: 0.3rem; flex-shrink: 0;
+}
+
 /* ── 编辑器整体布局 ───────────────────────────────────────────── */
 
 .editor-toolbar {
@@ -172,14 +189,61 @@
 .ref-item-meta { font-size: 0.7rem; color: #999; }
 .ref-item-desc { font-size: 0.73rem; color: #666; line-height: 1.5; margin-top: 0.15rem; }
 .ref-item-content { font-size: 0.73rem; color: #666; line-height: 1.6; margin-top: 0.15rem; }
+.ref-item { cursor: pointer; transition: background 0.12s; }
+.ref-item:hover { background: #f8f8f8; }
 .ref-loading { padding: 2rem; text-align: center; color: #ccc; font-size: 0.8rem; }
+
+/* ── 参考书详情视图 ─────────────────────────────── */
+
+.ref-detail { padding: 0.4rem 0.2rem; }
+.ref-detail-back {
+  display: inline-block; font-size: 0.72rem; color: var(--text-secondary);
+  cursor: pointer; margin-bottom: 0.6rem; text-decoration: none;
+  padding: 0.15rem 0.4rem; border-radius: var(--radius);
+  border: 1px solid var(--border-light); background: var(--bg);
+}
+.ref-detail-back:hover { color: var(--text); border-color: #999; }
+.ref-detail-name {
+  font-family: var(--font-serif); font-size: 1rem; font-weight: 600;
+  margin-bottom: 0.25rem;
+}
+.ref-detail-alias { font-size: 0.78rem; color: #999; margin-bottom: 0.5rem; }
+.ref-detail-table { width: 100%; margin-bottom: 0.6rem; }
+.ref-detail-table td { padding: 0.25rem 0; font-size: 0.76rem; vertical-align: top; }
+.ref-detail-table td:first-child { color: #999; width: 60px; white-space: nowrap; }
+.ref-detail-table td:last-child { color: var(--text); }
+.ref-detail-section {
+  font-size: 0.7rem; color: #999; text-transform: uppercase;
+  letter-spacing: .06em; margin: 0.5rem 0 0.25rem;
+  padding-top: 0.4rem; border-top: 1px solid #f0f0f0;
+}
+.ref-detail-desc { font-size: 0.78rem; color: #555; line-height: 1.7; }
+.ref-field-item {
+  padding: 0.3rem 0; border-bottom: 1px solid #f8f8f8;
+  font-size: 0.75rem;
+}
+.ref-field-item:last-child { border-bottom: none; }
+.ref-field-name { color: #999; font-size: 0.68rem; }
+.ref-field-value { color: #444; }
+.ref-field-flagged {
+  border-left: 2px solid #999; padding: 0.3rem 0.5rem;
+  margin: 0.2rem 0; background: #fafafa; font-size: 0.75rem;
+  border-radius: 0 3px 3px 0;
+}
+.ref-char-list { display: flex; flex-wrap: wrap; gap: 0.25rem; margin: 0.3rem 0; }
+.ref-char-tag {
+  font-size: 0.7rem; background: #f0f0f0; padding: 0.1rem 0.4rem;
+  border-radius: 2px; color: #555;
+}
+.ref-char-tag .role { color: #999; font-size: 0.65rem; }
 
 /* ── 稿纸舞台 ─────────────────────────────────────────────────── */
 
 .paper-stage {
   flex: 1; display: flex; flex-direction: column;
-  align-items: center; justify-content: center;
-  overflow: auto; padding: 1.5rem;
+  align-items: center; justify-content: flex-start;
+  overflow-y: auto; overflow-x: hidden;
+  padding: 1.5rem;
   background: var(--bg);
   min-width: 0; /* 防止 flex 子元素溢出 */
 }
@@ -190,28 +254,29 @@
 }
 
 .paper-sheet {
-  width: 680px; min-height: 880px;
-  background: var(--paper);
+  width: 680px; min-height: 520px;
+  background-color: var(--paper);
   box-shadow: var(--shadow-md);
   position: relative; overflow: hidden;
-  transition: background-color 0.3s;
+  display: flex; flex-direction: column;
 }
 
-/* 稿纸底色 */
-.paper-sheet.color-white { background: #ffffff; }
-.paper-sheet.color-cream { background: #fbfaf5; }
+/* 稿纸底色 — 用 background-color 而非 background，避免覆盖背景图 */
+.paper-sheet.color-white { background-color: #ffffff; }
+.paper-sheet.color-cream { background-color: #fbfaf5; }
 
 /* ── 横线格 ──────────────────────────────────────────────────── */
 
-.paper-sheet.style-lined .paper-textarea,
 .paper-sheet.style-lined {
   background-image:
     repeating-linear-gradient(
       to bottom,
       transparent, transparent 31px,
-      #d0d0d0 31px, #d0d0d0 32px
+      #d5d5d5 31px, #d5d5d5 32px
     );
   background-size: 100% 32px;
+}
+.paper-sheet.style-lined .paper-textarea {
   line-height: 32px;
 }
 /* 左边红线（作文本风格） */
@@ -223,25 +288,26 @@
 
 /* ── 方格纸 ──────────────────────────────────────────────────── */
 
-.paper-sheet.style-grid .paper-textarea,
 .paper-sheet.style-grid {
   background-image:
     repeating-linear-gradient(to bottom, transparent, transparent 23px, #e0e0e0 23px, #e0e0e0 24px),
-    repeating-linear-gradient(to right, transparent, transparent 23px, #e0e0e0 23px, #e0e0e0 24px);
+    repeating-linear-gradient(to right,  transparent, transparent 23px, #e0e0e0 23px, #e0e0e0 24px);
   background-size: 24px 24px;
+}
+.paper-sheet.style-grid .paper-textarea {
   line-height: 24px;
 }
 
 /* ── 书写区域（textarea） ────────────────────────────────────── */
 
 .paper-textarea {
-  display: block; width: 100%; min-height: 880px;
+  display: block; width: 100%; min-height: 520px; flex: 1;
   border: none; outline: none; resize: none;
   padding: 64px 72px 64px 72px;
   font-family: var(--font-serif); font-size: 16px;
-  color: var(--text); background: transparent;
-  line-height: inherit;
-  overflow-y: visible;
+  color: var(--text);
+  background: transparent;
+  overflow-y: auto;
 }
 .paper-textarea::placeholder { color: #ccc; }
 .paper-textarea:focus { outline: none; }

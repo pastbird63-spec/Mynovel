@@ -1,5 +1,5 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, abort
-from models import db, Book, Chapter, Character, PlotNode, WorldSetting, WORLD_SETTING_CATEGORIES
+from models import db, Book, Chapter, Character, CharacterField, CharacterImage, PlotNode, PlotField, PlotCharacter, WorldSetting, WorldSettingField, WORLD_SETTING_CATEGORIES
 
 chapters_bp = Blueprint('chapters', __name__)
 
@@ -192,3 +192,63 @@ def api_reference_world(book_id):
         if group:
             grouped[cat] = group
     return jsonify(grouped)
+
+
+# ── 参考书详情 API ────────────────────────────────────────────
+
+@chapters_bp.route('/api/reference/character/<int:id>')
+def api_reference_character_detail(id):
+    """人物详情（含自定义字段和图片）"""
+    c = Character.query.get_or_404(id)
+    return jsonify({
+        'id': c.id,
+        'name': c.name,
+        'alias': c.alias,
+        'age': c.age,
+        'gender': c.gender,
+        'description': c.description,
+        'book_id': c.book_id,
+        'custom_fields': [{'name': f.field_name, 'value': f.field_value}
+                          for f in c.custom_fields],
+        'images': [{'filename': img.filename, 'caption': img.caption}
+                   for img in c.images],
+    })
+
+
+@chapters_bp.route('/api/reference/plot/<int:id>')
+def api_reference_plot_detail(id):
+    """情节节点详情（含自定义字段和关联人物）"""
+    n = PlotNode.query.get_or_404(id)
+    return jsonify({
+        'id': n.id,
+        'title': n.title,
+        'order': n.order,
+        'time_in_story': n.time_in_story,
+        'location': n.location,
+        'summary': n.summary,
+        'custom_fields': [{
+            'name': f.field_name,
+            'value': f.field_value,
+            'is_flagged': f.is_flagged,
+            'flag_note': f.flag_note,
+        } for f in n.custom_fields],
+        'characters': [{
+            'id': pc.character.id,
+            'name': pc.character.name,
+            'role': pc.role_in_plot,
+        } for pc in n.plot_characters],
+    })
+
+
+@chapters_bp.route('/api/reference/world/<int:id>')
+def api_reference_world_detail(id):
+    """世界观设定详情（含自定义字段）"""
+    s = WorldSetting.query.get_or_404(id)
+    return jsonify({
+        'id': s.id,
+        'title': s.title,
+        'category': s.category,
+        'content': s.content,
+        'custom_fields': [{'name': f.field_name, 'value': f.field_value}
+                          for f in s.fields],
+    })

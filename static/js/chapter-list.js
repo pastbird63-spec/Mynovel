@@ -1,5 +1,5 @@
 // ═════════════════════════════════════════════════════════════════════════
-// 章节列表 — 新建、删除、拖拽排序、进入编辑器
+// 章节列表 — 内联新建、删除、拖拽排序、进入编辑器
 // ═════════════════════════════════════════════════════════════════════════
 
 (function () {
@@ -26,13 +26,12 @@
     var container = document.getElementById('chapter-items');
     var empty = document.getElementById('chapter-empty');
 
+    // 保留空状态和新建表单
+    var formEl = document.getElementById('new-chapter-form');
+
     if (chapters.length === 0) {
       empty.style.display = '';
-      // 清除除空状态外的其他子元素
-      var children = container.children;
-      for (var i = children.length - 1; i >= 0; i--) {
-        if (children[i] !== empty) container.removeChild(children[i]);
-      }
+      removeItems(container, [empty, formEl]);
       return;
     }
 
@@ -48,16 +47,22 @@
         + '</div>';
     });
 
-    // 保留空状态元素
-    container.innerHTML = h;
-    container.appendChild(empty);
+    // 清除旧列表项，保留表单和空状态
+    removeItems(container, [empty, formEl]);
+    container.insertAdjacentHTML('beforeend', h);
 
     // 绑定事件
     bindEvents(container);
   }
 
+  function removeItems(container, keep) {
+    for (var i = container.children.length - 1; i >= 0; i--) {
+      var el = container.children[i];
+      if (keep.indexOf(el) === -1) container.removeChild(el);
+    }
+  }
+
   function bindEvents(container) {
-    // 拖拽事件
     var items = container.querySelectorAll('.chapter-item');
     items.forEach(function (item, i) {
       item.addEventListener('dragstart', function (e) {
@@ -92,7 +97,6 @@
       });
     });
 
-    // 删除按钮
     container.querySelectorAll('.chapter-delete-btn').forEach(function (btn) {
       btn.addEventListener('click', function (e) {
         e.preventDefault();
@@ -109,6 +113,7 @@
   // ── 保存排序 ──────────────────────────────────────────────────────
 
   function saveOrder() {
+    if (chapters.length === 0) return;
     var orderList = chapters.map(function (c, i) {
       return { id: c.id, order: i };
     });
@@ -119,24 +124,63 @@
     });
   }
 
-  // ── 新建章节 ──────────────────────────────────────────────────────
+  // ── 内联新建表单 ──────────────────────────────────────────────────
 
-  function newChapter() {
-    var title = prompt('章节标题：');
-    if (!title || !title.trim()) return;
-    fetch('/api/books/' + bookId + '/chapters', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ title: title.trim() }),
-    })
-      .then(function (r) { return r.json(); })
-      .then(function (ch) {
-        if (ch.id) {
-          window.location.href = '/chapters/' + ch.id + '/write';
-        } else {
-          loadChapters();
-        }
-      });
+  function showNewChapterForm() {
+    // 如果已有表单，聚焦即可
+    var existing = document.getElementById('new-chapter-form');
+    if (existing) {
+      var input = existing.querySelector('input');
+      if (input) { input.focus(); input.select(); }
+      return;
+    }
+
+    var form = document.createElement('div');
+    form.id = 'new-chapter-form';
+    form.className = 'chapter-new-form';
+    form.innerHTML = ''
+      + '<input type="text" class="chapter-new-input" placeholder="章节标题…" autocomplete="off">'
+      + '<div class="chapter-new-actions">'
+      + '<button class="btn btn-sm btn-primary chapter-new-confirm">创建</button>'
+      + '<button class="btn btn-sm btn-outline-secondary chapter-new-cancel">取消</button>'
+      + '</div>';
+
+    var container = document.getElementById('chapter-items');
+    container.insertBefore(form, container.firstChild);
+
+    var input = form.querySelector('input');
+    var confirmBtn = form.querySelector('.chapter-new-confirm');
+    var cancelBtn = form.querySelector('.chapter-new-cancel');
+
+    input.focus();
+
+    function submit() {
+      var title = input.value.trim();
+      if (!title) { input.focus(); return; }
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = '…';
+      fetch('/api/books/' + bookId + '/chapters', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: title }),
+      })
+        .then(function (r) { return r.json(); })
+        .then(function (ch) {
+          if (ch.id) {
+            window.location.href = '/chapters/' + ch.id + '/write';
+          } else {
+            form.remove();
+            loadChapters();
+          }
+        });
+    }
+
+    confirmBtn.addEventListener('click', submit);
+    input.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter') { e.preventDefault(); submit(); }
+      if (e.key === 'Escape') { form.remove(); }
+    });
+    cancelBtn.addEventListener('click', function () { form.remove(); });
   }
 
   // ── HTML 转义 ─────────────────────────────────────────────────────
@@ -150,7 +194,7 @@
 
   // ── 初始化 ────────────────────────────────────────────────────────
 
-  document.getElementById('btn-new-chapter').addEventListener('click', newChapter);
+  document.getElementById('btn-new-chapter').addEventListener('click', showNewChapterForm);
   loadChapters();
 
 })();
