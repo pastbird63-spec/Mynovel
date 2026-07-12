@@ -15,11 +15,11 @@ with app.app_context():
             with db.engine.connect() as conn:
                 conn.execute(text(f'ALTER TABLE {table} ADD COLUMN {column} {col_type}'))
                 conn.commit()
-            print(f'  ✓ {table}.{column} 已添加')
+            print(f'  [OK] {table}.{column} added')
         else:
-            print(f'  - {table}.{column} 已存在，跳过')
+            print(f'  [SKIP] {table}.{column} already exists')
 
-    print('正在运行数据库迁移...')
+    print('Running database migration...')
 
     add_column_if_missing('chapters', 'paper_size', "VARCHAR(10) DEFAULT 'a5'")
     add_column_if_missing('characters', 'book_id', 'INTEGER REFERENCES books(id)')
@@ -36,6 +36,6 @@ with app.app_context():
         result = conn.execute(text("UPDATE characters SET book_id = NULL WHERE book_id = ''"))
         conn.commit()
         if result.rowcount > 0:
-            print(f'  ✓ 修复了 {result.rowcount} 条 characters 记录的空白 book_id')
+            print(f'  [OK] Fixed {result.rowcount} characters records with blank book_id')
 
-    print('迁移完成。')
+    print('Migration done.')
