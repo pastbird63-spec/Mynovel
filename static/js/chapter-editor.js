@@ -484,12 +484,18 @@
       renderPage();
     }, 100);
 
-    // 输入 → 合并 + 自动保存（输入过程中不重新分页，翻页时才刷新分页）
+    // 输入 → 合并 + 自动保存
     textarea.addEventListener('input', function () {
       if (state.renderingPage) return;
       state.dirty = true;
+      var oldTotal = state.totalPages;
       mergePageContent();
       updateStats();
+      // 内容超出当前页 → 先截断再自动翻页（带动画）
+      if (state.totalPages > oldTotal && textarea.value.length > state.charsPerPage) {
+        renderPage();  // textarea 截取到当前页边界
+        flipPage(1);   // 翻到下一页
+      }
       autoSave();
       var indicator = $('save-indicator');
       if (indicator) { indicator.textContent = '未保存'; indicator.className = 'editor-save-indicator'; }
