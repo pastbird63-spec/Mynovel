@@ -37,10 +37,15 @@
     empty.style.display = 'none';
 
     var h = '';
+    // 读取阅读进度，标记上次读到的章节
+    var readingPos = {};
+    try { readingPos = JSON.parse(localStorage.getItem('mynovel-reading-pos')) || {}; } catch (e) {}
+
     chapters.forEach(function (ch, i) {
+      var lastRead = readingPos[ch.id] ? ' <span class="chapter-last-read" title="上次读到第' + readingPos[ch.id] + '页">▸</span>' : '';
       h += '<div class="chapter-item draggable" draggable="true" data-index="' + i + '">'
         + '<span class="chapter-drag-handle" title="拖动排序">☰</span>'
-        + '<a href="/chapters/' + ch.id + '/write" class="chapter-title-link">' + esc(ch.title) + '</a>'
+        + '<a href="/chapters/' + ch.id + '/write" class="chapter-title-link">' + esc(ch.title) + lastRead + '</a>'
         + '<span class="chapter-meta">' + (ch.word_count || 0) + ' 字</span>'
         + '<button class="chapter-delete-btn" data-id="' + ch.id + '" title="删除">×</button>'
         + '</div>';

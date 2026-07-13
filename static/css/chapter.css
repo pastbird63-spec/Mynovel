@@ -48,6 +48,10 @@
 .chapter-meta {
   font-size: 0.73rem; color: var(--text-muted); white-space: nowrap;
 }
+.chapter-last-read {
+  font-size: 0.7rem; color: #999; margin-left: 0.3rem;
+  font-style: normal;
+}
 .chapter-delete-btn {
   background: none; border: none; color: #ccc; font-size: 1.1rem;
   cursor: pointer; padding: 0 0.3rem; line-height: 1;

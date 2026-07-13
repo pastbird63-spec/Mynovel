@@ -272,6 +272,8 @@
     flipCard.style.transform = 'rotateY(' + angle + 'deg)';
 
     state.currentPage = newPage;
+    // 阅读模式：保存当前位置
+    if (state.isReading) saveReadingPosition();
 
     setTimeout(function () {
       renderPage();
@@ -404,6 +406,28 @@
   // ═════════════════════════════════════════════════════════════
   // 自动保存
   // ═════════════════════════════════════════════════════════════
+
+  // ── 阅读进度记忆 ────────────────────────────────────────
+
+  var LS_READING_POS = 'mynovel-reading-pos';
+
+  function getReadingPositions() {
+    try { return JSON.parse(localStorage.getItem(LS_READING_POS)) || {}; }
+    catch (e) { return {}; }
+  }
+
+  function saveReadingPosition() {
+    if (!state.isReading) return;
+    var pos = getReadingPositions();
+    pos[chapterId] = state.currentPage;
+    localStorage.setItem(LS_READING_POS, JSON.stringify(pos));
+  }
+
+  function loadReadingPosition() {
+    if (!state.isReading) return 1;
+    var pos = getReadingPositions();
+    return pos[chapterId] || 1;
+  }
 
   function autoSave() {
     if (state.saveTimer) clearTimeout(state.saveTimer);
@@ -889,6 +913,13 @@
     // 先测尺寸再渲染首页
     setTimeout(function () {
       computeCharsPerPage();
+      // 阅读模式：恢复上次阅读位置
+      if (state.isReading) {
+        var saved = loadReadingPosition();
+        if (saved > 1 && saved <= getPageSegments().length) {
+          state.currentPage = saved;
+        }
+      }
       renderPage();
       // 播种初始历史 — 打开文档时的状态作为 undo 基线
       seedInitialHistory();
@@ -996,6 +1027,7 @@
     window.addEventListener('beforeunload', function () {
       mergePageContent();
       if (state.dirty) saveNow();
+      if (state.isReading) saveReadingPosition();
     });
 
     if (!textarea.value) textarea.focus();
