@@ -223,7 +223,7 @@ function initEpubImport() {
         if (data.error) {
           alert('导入失败：' + data.error);
           btn.disabled = false;
-          btn.textContent = '📖 导入电子书';
+          btn.textContent = '导入';
           return;
         }
         // 刷新页面以显示新书
@@ -232,7 +232,7 @@ function initEpubImport() {
       .catch(function (err) {
         alert('导入失败：' + err.message);
         btn.disabled = false;
-        btn.textContent = '📖 导入电子书';
+        btn.textContent = '导入';
       });
   });
 }
