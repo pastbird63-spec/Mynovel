@@ -258,19 +258,20 @@ a:hover { color: #000; }
 
 /* ── 书签丝带 ──────────────────────────────────────────────── */
 /* 创作：燕尾（V 形切角）  阅读：平底 */
+/* 丝带从书脊顶端伸出 */
 
 .spine-ribbon {
-  position: absolute; bottom: -16px; left: 50%;
+  position: absolute; top: -14px; left: 50%;
   transform: translateX(-50%);
-  width: 5px; height: 18px;
+  width: 7px; height: 20px;
   background: #999;
   border-radius: 0; z-index: 5;
   pointer-events: none;
 }
-/* 燕尾：创作 */
+/* 燕尾：创作 — 顶端切 V 形缺口 */
 .spine-writing .spine-ribbon {
   background: #777;
-  clip-path: polygon(0 0, 100% 0, 100% 55%, 50% 100%, 0 55%);
+  clip-path: polygon(0 30%, 50% 0, 100% 30%, 100% 100%, 0 100%);
 }
 /* 平底：阅读 */
 .spine-reading .spine-ribbon {
