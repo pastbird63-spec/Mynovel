@@ -27,7 +27,7 @@ function renderShelf(filter) {
       var hid = filter && !bk.title.toLowerCase().includes(filter) ? ' filtered-out' : '';
       var typeClass = bk.type === 'reading' ? ' spine-reading' : ' spine-writing';
       var typeLabel = bk.type === 'reading' ? ' [阅读]' : '';
-      h += '<div class="shelf-spine' + hid + typeClass + '" data-book-id="' + id + '" data-color="' + cl + '" draggable="true" title="' + esc(bk.title) + typeLabel + ' (右键切换颜色)"><span class="spine-ribbon"></span>' + esc(bk.title) + '</div>';
+      h += '<div class="shelf-spine' + hid + typeClass + '" data-book-id="' + id + '" data-color="' + cl + '" draggable="true" title="' + esc(bk.title) + typeLabel + ' (右键切换颜色)">' + esc(bk.title) + '</div>';
     });
     h += '<a href="/books/create" class="shelf-spine-add">+</a>';
     if (rowIds.length === 0) {

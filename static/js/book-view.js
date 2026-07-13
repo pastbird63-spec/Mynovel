@@ -17,7 +17,8 @@ function openBook(book, tab, hl) {
   document.querySelectorAll('#page-tabs .page-tab').forEach(function (t) { t.classList.remove('active'); });
   var tabEl = document.querySelector('#page-tabs [data-tab="' + AppState.currentTab + '"]');
   if (tabEl) tabEl.classList.add('active');
-  document.getElementById('book-topbar-title').textContent = book.title;
+  var typeLabel = book.type === 'reading' ? ' <span class="book-type-tag">｜阅读</span>' : ' <span class="book-type-tag">｜写作</span>';
+  document.getElementById('book-topbar-title').innerHTML = book.title + typeLabel;
   document.getElementById('btn-edit-book').href = '/books/' + book.id + '/edit';
   document.getElementById('btn-write-book').href = '/books/' + book.id + '/chapters';
   document.getElementById('shelf-view').style.display = 'none';

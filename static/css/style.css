@@ -256,21 +256,12 @@ a:hover { color: #000; }
   height: 1px; background: rgba(0,0,0,0.06);
 }
 
-/* ── 书脊类型标记：顶边 2px 色线 ──────────────────────────── */
+/* ── 翻书视图：书名旁的类型标记 ──────────────────────────── */
 
-.spine-ribbon {
-  position: absolute; top: 0; left: 0; right: 0;
-  height: 2px;
-  background: transparent;
-  border-radius: 0; z-index: 5;
-  pointer-events: none;
+.book-type-tag {
+  font-size: 0.72rem; font-weight: 400;
+  color: var(--text-muted);
 }
-.spine-writing .spine-ribbon { background: #555; }
-.spine-reading .spine-ribbon { background: #bbb; }
-
-/* 暗色书脊上的色线适配 */
-.shelf-spine[data-color="dark"] .spine-writing .spine-ribbon { background: #aaa; }
-.shelf-spine[data-color="dark"] .spine-reading .spine-ribbon { background: #ccc; }
 
 .shelf-spine:hover { transform: translateY(-5px); box-shadow: var(--shadow-md); z-index: 3; }
 .shelf-spine.active { outline: 2px solid #333; outline-offset: 2px; z-index: 4; }
