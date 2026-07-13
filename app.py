@@ -6,6 +6,7 @@ from routes.characters import characters_bp
 from routes.relationships import relationships_bp
 from routes.plots import plots_bp
 from routes.export import export_bp
+from routes.import_ import import_bp
 from routes.world import world_bp
 from routes.chapters import chapters_bp
 
@@ -28,6 +29,7 @@ app.register_blueprint(characters_bp)
 app.register_blueprint(relationships_bp)
 app.register_blueprint(plots_bp)
 app.register_blueprint(export_bp)
+app.register_blueprint(import_bp)
 app.register_blueprint(world_bp)
 app.register_blueprint(chapters_bp)
 
