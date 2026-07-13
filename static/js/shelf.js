@@ -25,7 +25,9 @@ function renderShelf(filter) {
       if (!bk) return;
       var cl = AppState.spineColors[id] || '';
       var hid = filter && !bk.title.toLowerCase().includes(filter) ? ' filtered-out' : '';
-      h += '<div class="shelf-spine' + hid + '" data-book-id="' + id + '" data-color="' + cl + '" draggable="true" title="' + esc(bk.title) + ' (右键切换颜色)">' + esc(bk.title) + '</div>';
+      var typeIcon = bk.type === 'reading' ? '📖 ' : '✍️ ';
+      var typeLabel = bk.type === 'reading' ? ' [阅读]' : '';
+      h += '<div class="shelf-spine' + hid + '" data-book-id="' + id + '" data-color="' + cl + '" draggable="true" title="' + esc(bk.title) + typeLabel + ' (右键切换颜色)">' + typeIcon + esc(bk.title) + '</div>';
     });
     h += '<a href="/books/create" class="shelf-spine-add">+</a>';
     if (rowIds.length === 0) {
@@ -179,3 +181,69 @@ function onSearch() {
     s.classList.toggle('filtered-out', q.length > 0 && !(s.title || '').toLowerCase().includes(q));
   });
 }
+
+// ── EPUB 导入（书架页快捷入口）──────────────────────────────────
+
+function initEpubImport() {
+  var btn = document.getElementById('btn-import-epub');
+  if (!btn) return;
+
+  // 创建隐藏文件选择器
+  var input = document.createElement('input');
+  input.type = 'file';
+  input.accept = '.epub';
+  input.style.display = 'none';
+  document.body.appendChild(input);
+
+  btn.addEventListener('click', function () {
+    input.value = '';
+    input.click();
+  });
+
+  input.addEventListener('change', function () {
+    var file = input.files[0];
+    if (!file) return;
+    if (!file.name.toLowerCase().endsWith('.epub')) {
+      alert('请选择 .epub 格式的电子书文件');
+      return;
+    }
+
+    btn.disabled = true;
+    btn.textContent = '导入中…';
+
+    var formData = new FormData();
+    formData.append('file', file);
+
+    fetch('/api/books/import-epub', {
+      method: 'POST',
+      body: formData,
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        if (data.error) {
+          alert('导入失败：' + data.error);
+          btn.disabled = false;
+          btn.textContent = '📖 导入电子书';
+          return;
+        }
+        // 刷新页面以显示新书
+        window.location.reload();
+      })
+      .catch(function (err) {
+        alert('导入失败：' + err.message);
+        btn.disabled = false;
+        btn.textContent = '📖 导入电子书';
+      });
+  });
+}
+
+// 在 renderShelf 中首次调用时初始化
+var _epubImportInited = false;
+var origRenderShelf = renderShelf;
+renderShelf = function (filter) {
+  origRenderShelf(filter);
+  if (!_epubImportInited) {
+    _epubImportInited = true;
+    initEpubImport();
+  }
+};
