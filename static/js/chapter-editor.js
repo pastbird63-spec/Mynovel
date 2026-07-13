@@ -251,8 +251,11 @@
 
   function insertPageBreak() {
     mergePageContent();
+    var segs = getPageSegments();
+    var seg = segs[state.currentPage - 1];
     pushHistory();
-    var pos = textarea.selectionStart;
+    // 光标位置需映射到全文（textarea 只显示当前页片段）
+    var pos = seg ? seg.start + textarea.selectionStart : textarea.selectionStart;
     state.fullContent = state.fullContent.substring(0, pos) + '\f' + state.fullContent.substring(pos);
     // 光标后的内容被推到新页
     state.currentPage = Math.min(state.currentPage + 1, getPageSegments().length);
@@ -673,7 +676,7 @@
       mergePageContent();
       updateStats();
       // 内容超出当前页 → 先截断再自动翻页（带动画）
-      if (state.totalPages > oldTotal && textarea.value.length > state.charsPerPage) {
+      if (state.totalPages > oldTotal) {
         renderPage();  // textarea 截取到当前页边界
         _autoPaging = true;
         flipPage(1);   // 翻到下一页（跳过 mergePageContent，保护全文）
