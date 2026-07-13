@@ -8,11 +8,18 @@
   <div class="card mb-3">
     <div class="card-body">
       <div class="mb-3">
+        <label class="form-label">书目类型</label>
+        <div class="radio-group mb-2">
+          <label class="radio-label"><input type="radio" name="type" value="writing" checked> ✍️ 创作 — 写作自己的小说</label>
+          <label class="radio-label"><input type="radio" name="type" value="reading"> 📖 阅读 — 导入电子书做笔记</label>
+        </div>
+      </div>
+      <div class="mb-3">
         <label class="form-label">书名 <span class="text-danger">*</span></label>
         <input type="text" name="title" class="form-control" required placeholder="你的小说或系列名称">
       </div>
       <div class="mb-3">
-        <label class="form-label">类型</label>
+        <label class="form-label">题材</label>
         <input type="text" name="genre" class="form-control" placeholder="如：历史奇幻、现代悬疑……">
       </div>
       <div class="mb-3">

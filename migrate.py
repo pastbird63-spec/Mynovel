@@ -21,6 +21,7 @@ with app.app_context():
 
     print('Running database migration...')
 
+    add_column_if_missing('books', 'type', "VARCHAR(10) DEFAULT 'writing'")
     add_column_if_missing('chapters', 'paper_size', "VARCHAR(10) DEFAULT 'a5'")
     add_column_if_missing('characters', 'book_id', 'INTEGER REFERENCES books(id)')
 

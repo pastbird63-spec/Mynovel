@@ -25,7 +25,8 @@ def create():
         book = Book(
             title=title,
             genre=request.form.get('genre', ''),
-            description=request.form.get('description', '')
+            description=request.form.get('description', ''),
+            type=request.form.get('type', 'writing'),
         )
         db.session.add(book)
         db.session.commit()
@@ -46,6 +47,7 @@ def edit(id):
         book.title = request.form.get('title', '').strip()
         book.genre = request.form.get('genre', '')
         book.description = request.form.get('description', '')
+        book.type = request.form.get('type', 'writing')
         db.session.commit()
         flash(f'「{book.title}」已更新', 'success')
         return redirect(url_for('books.index', book_id=book.id))

@@ -10,6 +10,7 @@ class Book(db.Model):
     title = db.Column(db.String(200), nullable=False)
     genre = db.Column(db.String(100))
     description = db.Column(db.Text)
+    type = db.Column(db.String(10), default='writing')  # 'writing' | 'reading'
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
     characters = db.relationship('Character', backref='book', lazy=True)
