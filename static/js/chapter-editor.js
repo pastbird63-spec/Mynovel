@@ -84,7 +84,68 @@
   }
 
   // ═════════════════════════════════════════════════════════════
-  // 分页 — 按 \f 切开后每段按 charsPerPage 切子页
+  // 字符宽度权重 — 仿 Word 按实际宽度分页
+  // ═════════════════════════════════════════════════════════════
+
+  function getCharWeight(ch) {
+    // 特殊控制字符
+    if (ch === '\n' || ch === '\r' || ch === '\t') return 1.0;
+    var code = ch.charCodeAt(0);
+    // 全角区间：中文 / 日文假名 / 韩文 / 全角标点 → 宽度 ≈ 字号
+    if (
+      (code >= 0x4E00 && code <= 0x9FFF) ||   // CJK 统一表意文字
+      (code >= 0x3400 && code <= 0x4DBF) ||   // CJK 扩展 A
+      (code >= 0xF900 && code <= 0xFAFF) ||   // CJK 兼容汉字
+      (code >= 0x3000 && code <= 0x303F) ||   // CJK 符号 & 标点（含全角空格　）
+      (code >= 0xFF01 && code <= 0xFF5E) ||   // 全角 ASCII（！＂＃…）
+      (code >= 0xFFE0 && code <= 0xFFE6) ||   // 全角货币符号
+      (code >= 0x3040 && code <= 0x309F) ||   // 平假名
+      (code >= 0x30A0 && code <= 0x30FF) ||   // 片假名
+      (code >= 0xAC00 && code <= 0xD7AF) ||   // 韩文音节
+      (code >= 0x2E80 && code <= 0x2FDF) ||   // CJK 部首
+      (code >= 0x31C0 && code <= 0x31EF) ||   // CJK 笔画
+      (code >= 0x3200 && code <= 0x33FF) ||   // 带圈 CJK
+      (code >= 0x2000 && code <= 0x206F)       // 通用标点（—…等宽标点）
+    ) {
+      return 1.0;
+    }
+    // 半角：英文 / 数字 / 空格 / 符号 → 宽度 ≈ 0.55 个中文字
+    return 0.55;
+  }
+
+  // 按加权宽度将一个 chunk 切分为多个页面区段
+  function splitChunkByWeight(chunk, ci, cursor, cp) {
+    var parts = [];
+    if (chunk.length === 0) {
+      parts.push({
+        start: cursor, end: cursor, chunkIndex: ci, isEmpty: true,
+      });
+      return parts;
+    }
+    var weight = 0;
+    var lastSplit = 0;
+    for (var i = 0; i < chunk.length; i++) {
+      weight += getCharWeight(chunk[i]);
+      if (weight >= cp && i > lastSplit) {
+        parts.push({
+          start: cursor + lastSplit, end: cursor + i + 1,
+          chunkIndex: ci, isEmpty: false,
+        });
+        lastSplit = i + 1;
+        weight = 0;
+      }
+    }
+    // 剩余部分（至少保留一个区段）
+    var restEmpty = (chunk.trim().length === 0) && parts.length === 0;
+    parts.push({
+      start: cursor + lastSplit, end: cursor + chunk.length,
+      chunkIndex: ci, isEmpty: restEmpty,
+    });
+    return parts;
+  }
+
+  // ═════════════════════════════════════════════════════════════
+  // 分页 — 按 \f 切开后每段按加权宽度切子页
   // ═════════════════════════════════════════════════════════════
 
   function getPageSegments() {
@@ -92,22 +153,17 @@
     var chunks = text.split('\f');
     var segments = [];
     var cp = state.charsPerPage;
-    var globalPage = 1;
-    var cursor = 0; // 当前段在全文中的起始位置
+    var cursor = 0;
+    var nextPage = 1;
 
     chunks.forEach(function (chunk, ci) {
-      var subPages = Math.max(1, Math.ceil(chunk.length / cp));
-      for (var p = 0; p < subPages; p++) {
-        segments.push({
-          start: cursor + p * cp,
-          end: Math.min(cursor + (p + 1) * cp, cursor + chunk.length),
-          globalPage: globalPage++,
-          chunkIndex: ci,
-          isEmpty: (chunk.trim().length === 0),
-        });
+      var subSegs = splitChunkByWeight(chunk, ci, cursor, cp);
+      for (var s = 0; s < subSegs.length; s++) {
+        subSegs[s].globalPage = nextPage++;
       }
+      segments = segments.concat(subSegs);
       cursor += chunk.length;
-      if (ci < chunks.length - 1) cursor += 1; // +1 for the \f char
+      if (ci < chunks.length - 1) cursor += 1; // +1 for \f
     });
 
     return segments;
