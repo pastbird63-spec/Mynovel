@@ -30,6 +30,7 @@
     refData: {},
     refView: 'list',
     refDetailItem: null,
+    _renderSeg: null,     // renderPage 时保存的当前页分段，供 mergePageContent 复用
   };
 
   // ── DOM 引用 ───────────────────────────────────────────────────
@@ -195,6 +196,7 @@
   function renderPage() {
     var segs = getPageSegments();
     var seg = segs[state.currentPage - 1];
+    state._renderSeg = seg || null;  // 保存分段，避免 mergePageContent 时 charsPerPage 变化导致误拼接
     if (!seg) { textarea.value = ''; return; }
     state.renderingPage = true;
     textarea.value = state.fullContent.substring(seg.start, seg.end);
@@ -206,8 +208,12 @@
 
   function mergePageContent() {
     if (state.renderingPage) return;
-    var segs = getPageSegments();
-    var seg = segs[state.currentPage - 1];
+    // 使用 renderPage 保存的分段，避免 charsPerPage 变化导致内容重复
+    var seg = state._renderSeg;
+    if (!seg) {
+      var segs = getPageSegments();
+      seg = segs[state.currentPage - 1];
+    }
     if (!seg) return;
     var edited = textarea.value;
     var fc = state.fullContent;
