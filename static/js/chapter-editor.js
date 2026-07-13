@@ -236,11 +236,12 @@
   function pushHistory() {
     var now = Date.now();
     var entry = { content: state.fullContent, page: state.currentPage };
-    // 1 秒内的连续输入合并为一个历史条目
-    if (history.index >= 0 && now - history.lastPush < 1000) {
+    // 仅在「栈顶 + 1 秒内」合并；undo 后再输入则截断重做栈
+    var atTip = history.index === history.stack.length - 1;
+    if (atTip && history.index >= 0 && now - history.lastPush < 1000) {
       history.stack[history.index] = entry;
     } else {
-      // 丢弃"未来"重做栈
+      // 丢弃"未来"重做栈，建立新分支
       history.stack = history.stack.slice(0, history.index + 1);
       history.stack.push(entry);
       if (history.stack.length > history.maxSize) history.stack.shift();
