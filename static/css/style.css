@@ -256,6 +256,35 @@ a:hover { color: #000; }
   height: 1px; background: rgba(0,0,0,0.06);
 }
 
+/* ── 书签丝带 ──────────────────────────────────────────────── */
+/* 创作：燕尾（V 形切角）  阅读：平底 */
+
+.spine-ribbon {
+  position: absolute; bottom: -16px; left: 50%;
+  transform: translateX(-50%);
+  width: 5px; height: 18px;
+  background: #999;
+  border-radius: 0; z-index: 5;
+  pointer-events: none;
+}
+/* 燕尾：创作 */
+.spine-writing .spine-ribbon {
+  background: #777;
+  clip-path: polygon(0 0, 100% 0, 100% 55%, 50% 100%, 0 55%);
+}
+/* 平底：阅读 */
+.spine-reading .spine-ribbon {
+  background: #999;
+}
+
+/* 暗色书脊上的丝带颜色适配 */
+.shelf-spine[data-color="dark"] .spine-ribbon {
+  background: #999;
+}
+.shelf-spine[data-color="dark"] .spine-writing .spine-ribbon {
+  background: #bbb;
+}
+
 .shelf-spine:hover { transform: translateY(-5px); box-shadow: var(--shadow-md); z-index: 3; }
 .shelf-spine.active { outline: 2px solid #333; outline-offset: 2px; z-index: 4; }
 .shelf-spine.drag-over { outline: 2px dashed #888; outline-offset: 2px; }
