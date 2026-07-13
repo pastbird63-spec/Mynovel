@@ -176,7 +176,12 @@
     state.totalPages = segs.length || 1;
     if (state.currentPage > state.totalPages) state.currentPage = state.totalPages;
     wordCountEl.textContent = (state.fullContent || '').length;
-    pageIndicator.textContent = state.currentPage + '/' + state.totalPages;
+    var pageText = state.currentPage + '/' + state.totalPages;
+    if (state.isReading) {
+      var pct = state.totalPages > 0 ? Math.round(state.currentPage / state.totalPages * 100) : 100;
+      pageText += ' (' + pct + '%)';
+    }
+    pageIndicator.textContent = pageText;
 
     var prevBtn = $('btn-prev-page');
     var nextBtn = $('btn-next-page');
@@ -228,7 +233,26 @@
 
   function flipPage(direction) {
     var newPage = state.currentPage + direction;
-    if (newPage < 1 || newPage > state.totalPages) return;
+    // 阅读模式：最后一页向前翻 → 跳下一章
+    if (newPage > state.totalPages) {
+      if (state.isReading) {
+        var nextBtn = $('btn-next-chapter');
+        if (nextBtn && nextBtn.style.display !== 'none') {
+          window.location.href = nextBtn.href;
+        }
+      }
+      return;
+    }
+    if (newPage < 1) {
+      // 阅读模式：第一页向后翻 → 跳上一章
+      if (state.isReading) {
+        var prevBtn = $('btn-prev-chapter');
+        if (prevBtn && prevBtn.style.display !== 'none') {
+          window.location.href = prevBtn.href;
+        }
+      }
+      return;
+    }
 
     // 自动翻页时跳过合并：input handler 已合并完整内容，
     // 此时 textarea 被 renderPage 截断过，再次合并会破坏全文
@@ -823,8 +847,8 @@
 
   function init() {
     // ── 阅读模式：textarea 只读，隐藏写作专属按钮 ──
-    var isReading = initData.bookType === 'reading';
-    if (isReading) {
+    state.isReading = initData.bookType === 'reading';
+    if (state.isReading) {
       textarea.readOnly = true;
       textarea.placeholder = '阅读中…';
       // 隐藏写作专属工具栏按钮
