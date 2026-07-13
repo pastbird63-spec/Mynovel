@@ -193,9 +193,9 @@
 
   function insertPageBreak() {
     mergePageContent();
-    pushHistory();
     var pos = textarea.selectionStart;
     state.fullContent = state.fullContent.substring(0, pos) + '\f' + state.fullContent.substring(pos);
+    pushHistory(); // 记录插入分页符之后的状态
     // 光标后的内容被推到新页
     state.currentPage = Math.min(state.currentPage + 1, getPageSegments().length);
     renderPage();
@@ -209,7 +209,6 @@
     var seg = segs[state.currentPage - 1];
     if (!seg || !seg.isEmpty) return;
 
-    pushHistory();
     var chunks = state.fullContent.split('\f');
     var ci = seg.chunkIndex;
     if (ci >= chunks.length) return;
@@ -218,6 +217,7 @@
     if (chunks.length === 1) return; // 至少保留一个段
     chunks.splice(ci, 1);
     state.fullContent = chunks.join('\f');
+    pushHistory(); // 记录删除页之后的状态
 
     // 如果当前页超出总页数，后退
     var newSegs = getPageSegments();
@@ -230,6 +230,7 @@
   // 撤销 / 重做
   // ═════════════════════════════════════════════════════════════
 
+  // 保存当前状态到历史栈（调用前确保 fullContent 已是最新）
   function pushHistory() {
     var now = Date.now();
     var entry = { content: state.fullContent, page: state.currentPage };
@@ -244,6 +245,7 @@
       else history.index++;
     }
     history.lastPush = now;
+    updateUndoButtons();
   }
 
   function undo() {
@@ -576,23 +578,26 @@
     setPaperSize(state.paperSize);
     applyTransform();
 
-    // 先测尺寸再渲染首页
+    // 先测尺寸再渲染首页，播种初始历史
     setTimeout(function () {
       computeCharsPerPage();
       renderPage();
+      history.stack = [{ content: state.fullContent, page: state.currentPage }];
+      history.index = 0;
+      history.lastPush = 0; // 远古时间，防止首次输入被合并
+      updateUndoButtons();
     }, 100);
 
     // 输入 → 合并 + 自动保存
     textarea.addEventListener('input', function () {
       if (state.renderingPage) return;
       state.dirty = true;
-      // IME 组合输入期间不推历史，等 compositionend 再处理
-      if (!isComposing) {
-        pushHistory();
-      }
+      // IME 组合输入期间不合并全文也不存历史，等 compositionend 统一处理
+      if (isComposing) { updateStats(); return; }
       var oldTotal = state.totalPages;
       mergePageContent();
       updateStats();
+      pushHistory();
       // 内容超出当前页 → 先截断再自动翻页（带动画）
       if (state.totalPages > oldTotal && textarea.value.length > state.charsPerPage) {
         renderPage();  // textarea 截取到当前页边界
@@ -607,10 +612,10 @@
     textarea.addEventListener('compositionstart', function () { isComposing = true; });
     textarea.addEventListener('compositionend', function () {
       isComposing = false;
-      // 组合结束后补推历史（此时 textarea 中已是最终文字）
-      pushHistory();
+      // 组合结束时 textarea 中已是最终文字，合并到全文并存历史
       mergePageContent();
       updateStats();
+      pushHistory();
       autoSave();
     });
 
