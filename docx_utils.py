@@ -335,6 +335,15 @@ def build_book_txt(book) -> str:
 
 # ── TXT 导入辅助 ────────────────────────────────────────────────
 
+# 匹配导出时产生的分页标记：\\n\\n***\\n\\n
+_PAGE_BREAK_RE = re.compile(r'\n{1,2}\*{3,5}\n{1,2}')
+
+
+def _restore_page_breaks(text: str) -> str:
+    """将 TXT 中的 *** 分页标记还原为 \\f"""
+    return _PAGE_BREAK_RE.sub('\f', text)
+
+
 def parse_txt(text: str, split_by_blank_lines: bool = False):
     """解析 TXT 文本。
 
@@ -344,7 +353,12 @@ def parse_txt(text: str, split_by_blank_lines: bool = False):
 
     返回：
       [{'title': str, 'content': str}]
+
+    会自动将 *** 分节线还原为 \\f 分页符。
     """
+    # 还原分页符（导出时 \\f → ***）
+    text = _restore_page_breaks(text)
+
     if not split_by_blank_lines:
         return [{'title': '', 'content': text}]
 

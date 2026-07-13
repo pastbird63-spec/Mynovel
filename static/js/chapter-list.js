@@ -8,7 +8,6 @@
   var bookId = window.CHAPTER_BOOK_ID;
   var chapters = [];
   var dragIdx = -1;
-  var selectedFile = null;
 
   // ── 加载列表 ──────────────────────────────────────────────────────
 
@@ -198,6 +197,8 @@
 
   // ── 导入 ──────────────────────────────────────────────────────────
 
+  var selectedFiles = [];  // 多文件支持
+
   function initImport() {
     var modal = document.getElementById('import-modal');
     var fileInput = document.getElementById('import-file-input');
@@ -212,32 +213,27 @@
     var confirmBtn = document.getElementById('btn-import-confirm');
     var msgEl = document.getElementById('import-msg');
 
-    function resetModal() {
-      selectedFile = null;
+    function getFormat() {
+      return document.querySelector('input[name="import-format"]:checked').value;
+    }
+
+    function updateAccept() {
+      var fmt = getFormat();
+      fileInput.accept = fmt === 'txt' ? '.txt' : '.docx';
+    }
+
+    function resetFileSelection() {
+      selectedFiles = [];
       fileInput.value = '';
       fileInfo.style.display = 'none';
       dropText.style.display = '';
-      optionGroup.style.display = 'none';
-      optionSplitBlank.style.display = 'none';
-      optionSplitHeading.style.display = 'none';
-      document.getElementById('chk-split-blank').checked = false;
-      document.getElementById('chk-split-heading').checked = false;
       confirmBtn.disabled = true;
       msgEl.textContent = '';
-      document.querySelector('input[name="import-format"][value="txt"]').checked = true;
-    }
-
-    function showModal() {
-      resetModal();
-      modal.style.display = 'flex';
-    }
-
-    function hideModal() {
-      modal.style.display = 'none';
+      msgEl.className = 'modal-msg';
     }
 
     function updateOptions() {
-      var format = document.querySelector('input[name="import-format"]:checked').value;
+      var format = getFormat();
       optionGroup.style.display = 'block';
       optionSplitBlank.style.display = (format === 'txt') ? '' : 'none';
       optionSplitHeading.style.display = (format === 'docx') ? '' : 'none';
@@ -246,41 +242,58 @@
       } else {
         document.getElementById('chk-split-blank').checked = false;
       }
+      updateAccept();
     }
 
-    function selectFile(file) {
-      if (!file) return;
-      var ext = file.name.split('.').pop().toLowerCase();
-      var expectedFormat = document.querySelector('input[name="import-format"]:checked').value;
-      if ((expectedFormat === 'txt' && ext !== 'txt') ||
-          (expectedFormat === 'docx' && ext !== 'docx')) {
-        msgEl.textContent = '文件格式与所选类型不匹配';
+    function selectFiles(files) {
+      if (!files || files.length === 0) return;
+
+      // 过滤出符合当前格式的文件
+      var format = getFormat();
+      var wantExt = format === 'txt' ? 'txt' : 'docx';
+      var valid = [];
+      for (var i = 0; i < files.length; i++) {
+        var ext = files[i].name.split('.').pop().toLowerCase();
+        if (ext === wantExt) {
+          valid.push(files[i]);
+        }
+      }
+
+      if (valid.length === 0) {
+        msgEl.textContent = '没有符合所选格式（.' + wantExt + '）的文件';
+        msgEl.className = 'modal-msg modal-msg-error';
         return;
       }
-      selectedFile = file;
-      fileName.textContent = file.name;
-      fileSize.textContent = formatBytes(file.size);
+
+      selectedFiles = valid;
+      var names = valid.map(function (f) { return f.name; });
+      fileName.textContent = names.length === 1 ? names[0] : names.length + ' 个文件';
+      var totalSize = 0;
+      valid.forEach(function (f) { totalSize += f.size; });
+      fileSize.textContent = formatBytes(totalSize);
       fileInfo.style.display = '';
       dropText.style.display = 'none';
       confirmBtn.disabled = false;
       msgEl.textContent = '';
+      msgEl.className = 'modal-msg';
       updateOptions();
     }
 
     function doImport() {
-      if (!selectedFile) return;
+      if (selectedFiles.length === 0) return;
 
-      var format = document.querySelector('input[name="import-format"]:checked').value;
+      var format = getFormat();
       var formData = new FormData();
-      formData.append('file', selectedFile);
+
+      // 多文件上传：后端期望 files[]
+      selectedFiles.forEach(function (f) {
+        formData.append('files', f);
+      });
 
       if (format === 'txt') {
-        var split = document.getElementById('chk-split-blank').checked;
-        if (split) formData.append('split', 'true');
-      }
-      if (format === 'docx') {
-        var splitH = document.getElementById('chk-split-heading').checked;
-        if (splitH) formData.append('split_by_heading', 'true');
+        if (document.getElementById('chk-split-blank').checked) {
+          formData.append('split', 'true');
+        }
       }
 
       confirmBtn.disabled = true;
@@ -300,13 +313,17 @@
             confirmBtn.textContent = '导入';
             return;
           }
-          msgEl.textContent = '已创建 ' + data.created.length + ' 个章节，共 ' + data.total_word_count + ' 字';
+          var info = '已创建 ' + data.created.length + ' 个章节，共 ' + data.total_word_count + ' 字';
+          if (data.errors && data.errors.length) {
+            info += '（' + data.errors.length + ' 个文件跳过）';
+          }
+          msgEl.textContent = info;
           msgEl.className = 'modal-msg modal-msg-ok';
           confirmBtn.textContent = '完成';
           setTimeout(function () {
             hideModal();
             loadChapters();
-          }, 1500);
+          }, 2000);
         })
         .catch(function (err) {
           msgEl.textContent = '导入失败：' + err.message;
@@ -314,6 +331,17 @@
           confirmBtn.disabled = false;
           confirmBtn.textContent = '导入';
         });
+    }
+
+    function showModal() {
+      // 重置：保留当前格式选择
+      resetFileSelection();
+      updateOptions();
+      modal.style.display = 'flex';
+    }
+
+    function hideModal() {
+      modal.style.display = 'none';
     }
 
     // 事件绑定
@@ -326,10 +354,10 @@
 
     confirmBtn.addEventListener('click', doImport);
 
-    // 格式切换
+    // 格式切换：只清文件，不动 radio
     document.querySelectorAll('input[name="import-format"]').forEach(function (radio) {
       radio.addEventListener('change', function () {
-        resetModal();
+        resetFileSelection();
         updateOptions();
       });
     });
@@ -337,7 +365,7 @@
     // 文件选择
     dropZone.addEventListener('click', function () { fileInput.click(); });
     fileInput.addEventListener('change', function () {
-      if (fileInput.files[0]) selectFile(fileInput.files[0]);
+      selectFiles(fileInput.files);
     });
 
     // 拖拽
@@ -351,7 +379,7 @@
     dropZone.addEventListener('drop', function (e) {
       e.preventDefault();
       dropZone.classList.remove('dragover');
-      if (e.dataTransfer.files[0]) selectFile(e.dataTransfer.files[0]);
+      selectFiles(e.dataTransfer.files);
     });
   }
 
