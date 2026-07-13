@@ -529,8 +529,8 @@
   // ── 键盘快捷键 ────────────────────────────────────────────────
 
   function onKeydown(e) {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
-    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); undo(); return; }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); e.stopPropagation(); redo(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); insertPageBreak(); }
     if (e.key === 'Escape') {
       if (state.refOpen && state.refView === 'detail') {
@@ -586,6 +586,12 @@
     });
 
     textarea.addEventListener('keydown', onKeydown);
+    // 阻止浏览器原生 undo/redo，只用我们自己的历史栈
+    textarea.addEventListener('beforeinput', function (e) {
+      if (e.inputType === 'historyUndo' || e.inputType === 'historyRedo') {
+        e.preventDefault();
+      }
+    });
     // 文档级 Ctrl+S：确保焦点不在 textarea 时也能保存（main.js 已阻止浏览器另存为）
     document.addEventListener('keydown', function (e) {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
