@@ -190,9 +190,9 @@
 
   function insertPageBreak() {
     mergePageContent();
-    pushHistory();
     var pos = textarea.selectionStart;
     state.fullContent = state.fullContent.substring(0, pos) + '\f' + state.fullContent.substring(pos);
+    pushHistory();  // 记录插入分页符之后的状态
     // 光标后的内容被推到新页
     state.currentPage = Math.min(state.currentPage + 1, getPageSegments().length);
     renderPage();
@@ -206,7 +206,6 @@
     var seg = segs[state.currentPage - 1];
     if (!seg || !seg.isEmpty) return;
 
-    pushHistory();
     var chunks = state.fullContent.split('\f');
     var ci = seg.chunkIndex;
     if (ci >= chunks.length) return;
@@ -215,6 +214,7 @@
     if (chunks.length === 1) return; // 至少保留一个段
     chunks.splice(ci, 1);
     state.fullContent = chunks.join('\f');
+    pushHistory();  // 记录删除之后的状态
 
     // 如果当前页超出总页数，后退
     var newSegs = getPageSegments();
@@ -230,17 +230,19 @@
   function pushHistory() {
     var now = Date.now();
     var entry = { content: state.fullContent, page: state.currentPage };
-    // 1 秒内的连续输入合并为一个历史条目
-    if (history.index >= 0 && now - history.lastPush < 1000) {
+    // 仅在「栈顶 + 1 秒内」合并；undo 后再输入则截断重做栈
+    var atTip = history.index === history.stack.length - 1;
+    if (atTip && history.index >= 0 && now - history.lastPush < 1000) {
       history.stack[history.index] = entry;
     } else {
-      // 丢弃"未来"重做栈
+      // 丢弃"未来"重做栈，建立新分支
       history.stack = history.stack.slice(0, history.index + 1);
       history.stack.push(entry);
       if (history.stack.length > history.maxSize) history.stack.shift();
       else history.index++;
     }
     history.lastPush = now;
+    updateUndoButtons();
   }
 
   function undo() {
@@ -555,20 +557,24 @@
     setPaperSize(state.paperSize);
     applyTransform();
 
-    // 先测尺寸再渲染首页
+    // 先测尺寸再渲染首页，播种初始历史
     setTimeout(function () {
       computeCharsPerPage();
       renderPage();
+      history.stack = [{ content: state.fullContent, page: state.currentPage }];
+      history.index = 0;
+      history.lastPush = 0; // 远古时间，防止首次输入被合并
+      updateUndoButtons();
     }, 100);
 
     // 输入 → 合并 + 自动保存
     textarea.addEventListener('input', function () {
       if (state.renderingPage) return;
       state.dirty = true;
-      pushHistory();
       var oldTotal = state.totalPages;
       mergePageContent();
       updateStats();
+      pushHistory();  // 记录编辑后状态（必须在 merge 之后）
       // 内容超出当前页 → 先截断再自动翻页（带动画）
       if (state.totalPages > oldTotal && textarea.value.length > state.charsPerPage) {
         renderPage();  // textarea 截取到当前页边界
