@@ -49,6 +49,7 @@
 
   // 稿纸平移状态
   var panState = { x: 0, y: 0, dragging: false, sx: 0, sy: 0 };
+  var flipTimer = null; // 翻页动画定时器，用于撤销时取消
 
   // 撤销/重做历史栈
   var history = {
@@ -181,7 +182,8 @@
 
     state.currentPage = newPage;
 
-    setTimeout(function () {
+    clearTimeout(flipTimer);
+    flipTimer = setTimeout(function () {
       renderPage();
       flipCard.style.transition = 'none';
       flipCard.style.transform = 'rotateY(0deg)';
@@ -261,6 +263,7 @@
   }
 
   function restoreHistory() {
+    clearTimeout(flipTimer); // 取消进行中的翻页动画
     var entry = history.stack[history.index];
     state.fullContent = entry.content;
     // 钳制页码
@@ -549,7 +552,6 @@
   function onKeydown(e) {
     // IME 组合输入期间不拦截快捷键，让输入法正常处理
     if (isComposing) return;
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveNow(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); insertPageBreak(); }
@@ -620,6 +622,14 @@
     });
 
     textarea.addEventListener('keydown', onKeydown);
+    // 文档级 Ctrl+S：焦点不在 textarea 时也能保存
+    document.addEventListener('keydown', function (e) {
+      if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+        e.preventDefault();
+        mergePageContent();
+        saveNow();
+      }
+    });
 
     // 工具栏
     $('btn-paper-lined').addEventListener('click', function () { setPaperStyle('lined'); });
