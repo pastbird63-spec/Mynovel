@@ -211,8 +211,12 @@
     // 使用 renderPage 保存的分段，避免 charsPerPage 变化导致内容重复
     var seg = state._renderSeg;
     if (!seg) {
-      var segs = getPageSegments();
-      seg = segs[state.currentPage - 1];
+      // _renderSeg 为 null 说明 renderPage 还没被调用过，textarea 里
+      // 仍是模板渲染的全文，fullContent 也是全文，二者一致，无需合并。
+      // 若强行用 getPageSegments() 回退，此时 charsPerPage 可能与
+      // textarea 实际代表的全文长度不匹配，会把全文内容错误地拼接到
+      // 分页位置，造成内容重复/字数膨胀。
+      return;
     }
     if (!seg) return;
     var edited = textarea.value;
