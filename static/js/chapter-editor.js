@@ -50,6 +50,14 @@
   // 稿纸平移状态
   var panState = { x: 0, y: 0, dragging: false, sx: 0, sy: 0 };
 
+  // 撤销/重做历史栈
+  var history = {
+    stack: [],
+    index: -1,
+    maxSize: 100,
+    lastPush: 0,
+  };
+
   // ═════════════════════════════════════════════════════════════
   // 动态计算每页字数
   // ═════════════════════════════════════════════════════════════
@@ -182,6 +190,7 @@
 
   function insertPageBreak() {
     mergePageContent();
+    pushHistory();
     var pos = textarea.selectionStart;
     state.fullContent = state.fullContent.substring(0, pos) + '\f' + state.fullContent.substring(pos);
     // 光标后的内容被推到新页
@@ -197,6 +206,7 @@
     var seg = segs[state.currentPage - 1];
     if (!seg || !seg.isEmpty) return;
 
+    pushHistory();
     var chunks = state.fullContent.split('\f');
     var ci = seg.chunkIndex;
     if (ci >= chunks.length) return;
@@ -211,6 +221,55 @@
     if (state.currentPage > newSegs.length) state.currentPage = newSegs.length;
     renderPage();
     autoSave();
+  }
+
+  // ═════════════════════════════════════════════════════════════
+  // 撤销 / 重做
+  // ═════════════════════════════════════════════════════════════
+
+  function pushHistory() {
+    var now = Date.now();
+    var entry = { content: state.fullContent, page: state.currentPage };
+    // 1 秒内的连续输入合并为一个历史条目
+    if (history.index >= 0 && now - history.lastPush < 1000) {
+      history.stack[history.index] = entry;
+    } else {
+      // 丢弃"未来"重做栈
+      history.stack = history.stack.slice(0, history.index + 1);
+      history.stack.push(entry);
+      if (history.stack.length > history.maxSize) history.stack.shift();
+      else history.index++;
+    }
+    history.lastPush = now;
+  }
+
+  function undo() {
+    if (history.index <= 0) return;
+    history.index--;
+    restoreHistory();
+  }
+
+  function redo() {
+    if (history.index >= history.stack.length - 1) return;
+    history.index++;
+    restoreHistory();
+  }
+
+  function restoreHistory() {
+    var entry = history.stack[history.index];
+    state.fullContent = entry.content;
+    // 钳制页码
+    var segs = getPageSegments();
+    state.currentPage = Math.min(entry.page, Math.max(1, segs.length));
+    renderPage();
+    autoSave();
+    updateUndoButtons();
+  }
+
+  function updateUndoButtons() {
+    var ub = $('btn-undo'), rb = $('btn-redo');
+    if (ub) ub.disabled = history.index <= 0;
+    if (rb) rb.disabled = history.index >= history.stack.length - 1;
   }
 
   // ═════════════════════════════════════════════════════════════
@@ -468,7 +527,9 @@
   // ── 键盘快捷键 ────────────────────────────────────────────────
 
   function onKeydown(e) {
-    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveNow(); }
+    if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveNow(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); insertPageBreak(); }
     if (e.key === 'Escape') {
       if (state.refOpen && state.refView === 'detail') {
@@ -505,6 +566,7 @@
     textarea.addEventListener('input', function () {
       if (state.renderingPage) return;
       state.dirty = true;
+      pushHistory();
       var oldTotal = state.totalPages;
       mergePageContent();
       updateStats();
@@ -529,6 +591,8 @@
     $('btn-size-a4').addEventListener('click', function () { setPaperSize('a4'); });
     $('btn-zoom-out').addEventListener('click', function () { setZoom(-0.1); });
     $('btn-zoom-in').addEventListener('click', function () { setZoom(0.1); });
+    $('btn-undo').addEventListener('click', function () { undo(); });
+    $('btn-redo').addEventListener('click', function () { redo(); });
 
     // 翻页
     $('btn-prev-page').addEventListener('click', function () { flipPage(-1); });
