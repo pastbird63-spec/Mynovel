@@ -517,7 +517,9 @@
 
   function renderRefList(tab, data) {
     state.refView = 'list'; state.refDetailItem = null;
-    var h = '';
+    var titles = { char: '人物', plot: '情节', world: '世界观' };
+    var h = '<div class="ref-toolbar"><span class="ref-panel-title-inline">' + (titles[tab] || '') + '</span>';
+    h += '<button class="ref-add-btn" data-tab="' + tab + '">＋ 新建</button></div>';
     if (tab === 'world') {
       for (var cat in data) {
         if (!data.hasOwnProperty(cat)) continue;
@@ -551,6 +553,14 @@
       });
       refPanelBody.innerHTML = h;
     }
+    // [+ 新建] 按钮事件
+    var addBtn = refPanelBody.querySelector('.ref-add-btn');
+    if (addBtn) {
+      addBtn.addEventListener('click', function (e) {
+        e.stopPropagation();
+        showQuickCreateForm(this.dataset.tab);
+      });
+    }
     refPanelBody.querySelectorAll('.ref-item').forEach(function (item) {
       item.addEventListener('click', function () {
         loadRefDetail(this.dataset.type, parseInt(this.dataset.id));
@@ -568,7 +578,10 @@
   }
 
   function renderRefDetail(type, d) {
-    var h = '<button class="ref-detail-back" id="ref-detail-back">&larr; 返回列表</button>';
+    var h = '<div class="ref-detail-actions">';
+    h += '<button class="ref-detail-back" id="ref-detail-back">&larr; 返回列表</button>';
+    h += '<button class="ref-edit-btn" data-type="' + type + '" data-id="' + d.id + '">编辑</button>';
+    h += '</div>';
     if (type === 'char') {
       h += '<div class="ref-detail-name">' + esc(d.name) + '</div>';
       if (d.alias) h += '<div class="ref-detail-alias">' + esc(d.alias) + '</div>';
@@ -615,6 +628,152 @@
     refPanelBody.innerHTML = h;
     var backBtn = document.getElementById('ref-detail-back');
     if (backBtn) backBtn.addEventListener('click', function () { renderRefList(state.refTab, state.refData[state.refTab]); });
+    var editBtn = refPanelBody.querySelector('.ref-edit-btn');
+    if (editBtn) editBtn.addEventListener('click', function () {
+      showQuickEditForm(this.dataset.type, state.refDetailItem.data);
+    });
+  }
+
+  // ── 参考书快捷编辑 ──────────────────────────────────────────
+
+  function showQuickCreateForm(tab) {
+    var titles = { char: '人物', plot: '情节', world: '世界观' };
+    var h = '<div class="ref-form-overlay">';
+    h += '<div class="ref-form-title">新建' + (titles[tab] || '') + '</div>';
+
+    if (tab === 'char') {
+      h += '<div class="ref-form-field"><label>姓名 <span class="ref-form-req">*</span></label><input class="ref-form-input" id="qf-name" placeholder="必填"></div>';
+      h += '<div class="ref-form-field"><label>别称</label><input class="ref-form-input" id="qf-alias"></div>';
+      h += '<div class="ref-form-field"><label>描述</label><textarea class="ref-form-textarea" id="qf-desc" rows="3"></textarea></div>';
+    } else if (tab === 'plot') {
+      h += '<div class="ref-form-field"><label>标题 <span class="ref-form-req">*</span></label><input class="ref-form-input" id="qf-title" placeholder="必填"></div>';
+      h += '<div class="ref-form-field"><label>时间</label><input class="ref-form-input" id="qf-time"></div>';
+      h += '<div class="ref-form-field"><label>地点</label><input class="ref-form-input" id="qf-location"></div>';
+      h += '<div class="ref-form-field"><label>摘要</label><textarea class="ref-form-textarea" id="qf-summary" rows="3"></textarea></div>';
+    } else if (tab === 'world') {
+      h += '<div class="ref-form-field"><label>标题 <span class="ref-form-req">*</span></label><input class="ref-form-input" id="qf-title" placeholder="必填"></div>';
+      h += '<div class="ref-form-field"><label>类别</label><select class="ref-form-input" id="qf-category"><option value="地理">地理</option><option value="规则">规则</option><option value="历史">历史</option><option value="其他">其他</option></select></div>';
+      h += '<div class="ref-form-field"><label>内容</label><textarea class="ref-form-textarea" id="qf-content" rows="3"></textarea></div>';
+    }
+
+    h += '<div class="ref-form-actions"><button class="ref-form-cancel">取消</button><button class="ref-form-save">保存</button></div>';
+    h += '</div>';
+    refPanelBody.innerHTML = h;
+
+    refPanelBody.querySelector('.ref-form-cancel').addEventListener('click', function () {
+      renderRefList(state.refTab, state.refData[state.refTab] || []);
+    });
+    refPanelBody.querySelector('.ref-form-save').addEventListener('click', function () {
+      submitQuickCreate(tab);
+    });
+  }
+
+  function showQuickEditForm(type, data) {
+    var titles = { char: '人物', plot: '情节', world: '世界观' };
+    var h = '<div class="ref-form-overlay">';
+    h += '<div class="ref-form-title">编辑' + (titles[type] || '') + '</div>';
+
+    if (type === 'char') {
+      h += '<div class="ref-form-field"><label>姓名 <span class="ref-form-req">*</span></label><input class="ref-form-input" id="qf-name" value="' + esc(data.name || '') + '"></div>';
+      h += '<div class="ref-form-field"><label>别称</label><input class="ref-form-input" id="qf-alias" value="' + esc(data.alias || '') + '"></div>';
+      h += '<div class="ref-form-field"><label>描述</label><textarea class="ref-form-textarea" id="qf-desc" rows="3">' + esc(data.description || '') + '</textarea></div>';
+    } else if (type === 'plot') {
+      h += '<div class="ref-form-field"><label>标题 <span class="ref-form-req">*</span></label><input class="ref-form-input" id="qf-title" value="' + esc(data.title || '') + '"></div>';
+      h += '<div class="ref-form-field"><label>时间</label><input class="ref-form-input" id="qf-time" value="' + esc(data.time_in_story || '') + '"></div>';
+      h += '<div class="ref-form-field"><label>地点</label><input class="ref-form-input" id="qf-location" value="' + esc(data.location || '') + '"></div>';
+      h += '<div class="ref-form-field"><label>摘要</label><textarea class="ref-form-textarea" id="qf-summary" rows="3">' + esc(data.summary || '') + '</textarea></div>';
+    } else if (type === 'world') {
+      var cats = ['地理', '规则', '历史', '其他'];
+      h += '<div class="ref-form-field"><label>标题 <span class="ref-form-req">*</span></label><input class="ref-form-input" id="qf-title" value="' + esc(data.title || '') + '"></div>';
+      h += '<div class="ref-form-field"><label>类别</label><select class="ref-form-input" id="qf-category">';
+      cats.forEach(function (c) { h += '<option value="' + c + '"' + (data.category === c ? ' selected' : '') + '>' + c + '</option>'; });
+      h += '</select></div>';
+      h += '<div class="ref-form-field"><label>内容</label><textarea class="ref-form-textarea" id="qf-content" rows="3">' + esc(data.content || '') + '</textarea></div>';
+    }
+
+    h += '<div class="ref-form-actions"><button class="ref-form-cancel">取消</button><button class="ref-form-save">保存</button></div>';
+    h += '</div>';
+    refPanelBody.innerHTML = h;
+
+    refPanelBody.querySelector('.ref-form-cancel').addEventListener('click', function () {
+      loadRefDetail(type, data.id);
+    });
+    refPanelBody.querySelector('.ref-form-save').addEventListener('click', function () {
+      submitQuickUpdate(type, data.id);
+    });
+  }
+
+  function submitQuickCreate(tab) {
+    var body = {};
+    var idField = null;
+
+    if (tab === 'char') {
+      body.name = (document.getElementById('qf-name') || {}).value || '';
+      if (!body.name.trim()) { alert('名称不能为空'); return; }
+      body.alias = (document.getElementById('qf-alias') || {}).value || '';
+      body.description = (document.getElementById('qf-desc') || {}).value || '';
+    } else if (tab === 'plot') {
+      body.title = (document.getElementById('qf-title') || {}).value || '';
+      if (!body.title.trim()) { alert('标题不能为空'); return; }
+      body.time_in_story = (document.getElementById('qf-time') || {}).value || '';
+      body.location = (document.getElementById('qf-location') || {}).value || '';
+      body.summary = (document.getElementById('qf-summary') || {}).value || '';
+    } else if (tab === 'world') {
+      body.title = (document.getElementById('qf-title') || {}).value || '';
+      if (!body.title.trim()) { alert('标题不能为空'); return; }
+      body.category = (document.getElementById('qf-category') || {}).value || '其他';
+      body.content = (document.getElementById('qf-content') || {}).value || '';
+    }
+
+    var endpoints = { char: 'characters', plot: 'plots', world: 'world' };
+    fetch('/api/books/' + bookId + '/' + endpoints[tab] + '/quick', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (result) {
+        if (result.error) { alert(result.error); return; }
+        // 清除缓存，重新加载列表
+        delete state.refData[tab];
+        loadRefData(tab);
+      });
+  }
+
+  function submitQuickUpdate(type, id) {
+    var body = {};
+
+    if (type === 'char') {
+      body.name = (document.getElementById('qf-name') || {}).value || '';
+      if (!body.name.trim()) { alert('名称不能为空'); return; }
+      body.alias = (document.getElementById('qf-alias') || {}).value || '';
+      body.description = (document.getElementById('qf-desc') || {}).value || '';
+    } else if (type === 'plot') {
+      body.title = (document.getElementById('qf-title') || {}).value || '';
+      if (!body.title.trim()) { alert('标题不能为空'); return; }
+      body.time_in_story = (document.getElementById('qf-time') || {}).value || '';
+      body.location = (document.getElementById('qf-location') || {}).value || '';
+      body.summary = (document.getElementById('qf-summary') || {}).value || '';
+    } else if (type === 'world') {
+      body.title = (document.getElementById('qf-title') || {}).value || '';
+      if (!body.title.trim()) { alert('标题不能为空'); return; }
+      body.category = (document.getElementById('qf-category') || {}).value || '其他';
+      body.content = (document.getElementById('qf-content') || {}).value || '';
+    }
+
+    var endpoints = { char: 'characters', plot: 'plot-nodes', world: 'world-settings' };
+    fetch('/api/' + endpoints[type] + '/' + id + '/quick', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+      .then(function (r) { return r.json(); })
+      .then(function (result) {
+        if (result.error) { alert(result.error); return; }
+        // 清除缓存，重新加载详情
+        delete state.refData[state.refTab];
+        loadRefDetail(type, id);
+      });
   }
 
   // ── 上下章导航 ──────────────────────────────────────────────
@@ -663,6 +822,40 @@
   // ═════════════════════════════════════════════════════════════
 
   function init() {
+    // ── 阅读模式：textarea 只读，隐藏写作专属按钮 ──
+    var isReading = initData.bookType === 'reading';
+    if (isReading) {
+      textarea.readOnly = true;
+      textarea.placeholder = '阅读中…';
+      // 隐藏写作专属工具栏按钮
+      var writingBtns = [
+        'btn-paper-lined', 'btn-paper-grid',
+        'btn-color-white', 'btn-color-cream',
+        'btn-size-a5', 'btn-size-a4',
+        'btn-undo', 'btn-redo',
+        'btn-break-page', 'btn-delete-page',
+        'btn-export-chapter'
+      ];
+      writingBtns.forEach(function (id) {
+        var el = document.getElementById(id);
+        if (el) el.style.display = 'none';
+      });
+      // 隐藏状态栏删除按钮和分页按钮
+      var delBtn = $('btn-delete-page');
+      var breakBtn = $('btn-break-page');
+      if (delBtn) delBtn.style.display = 'none';
+      if (breakBtn) breakBtn.style.display = 'none';
+      // 保存指示器改为阅读模式
+      var indicator = $('save-indicator');
+      if (indicator) { indicator.textContent = '阅读模式'; indicator.className = 'editor-save-indicator saved'; }
+      // 禁止 Ctrl+S 保存
+      document.addEventListener('keydown', function (e) {
+        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+          e.preventDefault();
+        }
+      });
+    }
+
     // 样式
     setPaperStyle(state.paperStyle);
     setPaperColor(state.paperColor);

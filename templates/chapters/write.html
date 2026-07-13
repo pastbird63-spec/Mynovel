@@ -112,6 +112,7 @@ window.CHAPTER_INIT = {
   paperStyle: {{ (chapter.paper_style or 'lined')|tojson }},
   paperColor: {{ (chapter.paper_color or 'cream')|tojson }},
   paperSize: {{ (chapter.paper_size or 'a5')|tojson }},
+  bookType: {{ (book.type if book else 'writing')|tojson }},
 };
 </script>
 <script src="{{ url_for('static', filename='js/chapter-editor.js') }}"></script>

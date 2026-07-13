@@ -277,3 +277,151 @@ def api_reference_world_detail(id):
         'custom_fields': [{'name': f.field_name, 'value': f.field_value}
                           for f in s.fields],
     })
+
+
+# ═════════════════════════════════════════════════════════════════════
+# 快速 CRUD API（供参考书侧栏用，JSON 入/出）
+# ═════════════════════════════════════════════════════════════════════
+
+# ── 人物 ──────────────────────────────────────────────────────────
+
+@chapters_bp.route('/api/books/<int:book_id>/characters/quick', methods=['POST'])
+def api_quick_create_character(book_id):
+    Book.query.get_or_404(book_id)
+    data = request.get_json(silent=True) or {}
+    name = (data.get('name') or '').strip()
+    if not name:
+        return jsonify({'error': '名称不能为空'}), 400
+    character = Character(
+        book_id=book_id,
+        name=name,
+        alias=(data.get('alias') or '').strip(),
+        age=(data.get('age') or '').strip(),
+        gender=(data.get('gender') or '').strip(),
+        description=(data.get('description') or '').strip(),
+    )
+    db.session.add(character)
+    db.session.commit()
+    return jsonify({
+        'id': character.id,
+        'name': character.name,
+        'alias': character.alias,
+        'age': character.age,
+        'gender': character.gender,
+        'description': character.description,
+    }), 201
+
+
+@chapters_bp.route('/api/characters/<int:id>/quick', methods=['PUT'])
+def api_quick_update_character(id):
+    character = Character.query.get_or_404(id)
+    data = request.get_json(silent=True) or {}
+    if 'name' in data:
+        character.name = data['name'].strip()
+    if 'alias' in data:
+        character.alias = (data['alias'] or '').strip()
+    if 'age' in data:
+        character.age = (data['age'] or '').strip()
+    if 'gender' in data:
+        character.gender = (data['gender'] or '').strip()
+    if 'description' in data:
+        character.description = (data['description'] or '').strip()
+    db.session.commit()
+    return jsonify({'ok': True, 'id': character.id})
+
+
+# ── 情节 ──────────────────────────────────────────────────────────
+
+@chapters_bp.route('/api/books/<int:book_id>/plots/quick', methods=['POST'])
+def api_quick_create_plot(book_id):
+    Book.query.get_or_404(book_id)
+    data = request.get_json(silent=True) or {}
+    title = (data.get('title') or '').strip()
+    if not title:
+        return jsonify({'error': '标题不能为空'}), 400
+
+    max_order = db.session.query(db.func.max(PlotNode.order))\
+        .filter_by(book_id=book_id).scalar() or 0
+
+    node = PlotNode(
+        book_id=book_id,
+        title=title,
+        order=max_order + 1,
+        time_in_story=(data.get('time_in_story') or '').strip(),
+        location=(data.get('location') or '').strip(),
+        summary=(data.get('summary') or '').strip(),
+    )
+    db.session.add(node)
+    db.session.commit()
+    return jsonify({
+        'id': node.id,
+        'title': node.title,
+        'order': node.order,
+        'time_in_story': node.time_in_story,
+        'location': node.location,
+        'summary': node.summary,
+    }), 201
+
+
+@chapters_bp.route('/api/plot-nodes/<int:id>/quick', methods=['PUT'])
+def api_quick_update_plot(id):
+    node = PlotNode.query.get_or_404(id)
+    data = request.get_json(silent=True) or {}
+    if 'title' in data:
+        node.title = data['title'].strip()
+    if 'time_in_story' in data:
+        node.time_in_story = (data['time_in_story'] or '').strip()
+    if 'location' in data:
+        node.location = (data['location'] or '').strip()
+    if 'summary' in data:
+        node.summary = (data['summary'] or '').strip()
+    db.session.commit()
+    return jsonify({'ok': True, 'id': node.id})
+
+
+# ── 世界观 ────────────────────────────────────────────────────────
+
+@chapters_bp.route('/api/books/<int:book_id>/world/quick', methods=['POST'])
+def api_quick_create_world(book_id):
+    Book.query.get_or_404(book_id)
+    data = request.get_json(silent=True) or {}
+    title = (data.get('title') or '').strip()
+    if not title:
+        return jsonify({'error': '标题不能为空'}), 400
+
+    category = data.get('category', '其他')
+    if category not in WORLD_SETTING_CATEGORIES:
+        category = '其他'
+
+    setting = WorldSetting(
+        book_id=book_id,
+        title=title,
+        category=category,
+        content=(data.get('content') or '').strip(),
+    )
+    db.session.add(setting)
+    db.session.commit()
+    return jsonify({
+        'id': setting.id,
+        'title': setting.title,
+        'category': setting.category,
+        'content': setting.content,
+    }), 201
+
+
+@chapters_bp.route('/api/world-settings/<int:id>/quick', methods=['PUT'])
+def api_quick_update_world(id):
+    setting = WorldSetting.query.get_or_404(id)
+    data = request.get_json(silent=True) or {}
+    if 'title' in data:
+        setting.title = data['title'].strip()
+    if 'category' in data:
+        cat = data['category']
+        if cat in WORLD_SETTING_CATEGORIES:
+            setting.category = cat
+    if 'content' in data:
+        setting.content = (data['content'] or '').strip()
+    from datetime import datetime
+    setting.updated_at = datetime.utcnow()
+    db.session.commit()
+    return jsonify({'ok': True, 'id': setting.id})
