@@ -14,3 +14,7 @@ Flask + SQLite 小说创作辅助工具。书架/人物/时间线/世界观 SPA�
 - Jinja2 模板（base.html）
 - 前端 Vanilla JS，无框架
 - CSS 黑白灰配色（变量见 style.css `:root`）
+
+## 设计原则
+
+**简约高级。** 禁用 emoji 做装饰，用线条、间距、灰度来区分信息层级。宁可少一个视觉元素，不要多一个噪音。

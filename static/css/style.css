@@ -256,35 +256,21 @@ a:hover { color: #000; }
   height: 1px; background: rgba(0,0,0,0.06);
 }
 
-/* ── 书签丝带 ──────────────────────────────────────────────── */
-/* 创作：燕尾（V 形切角）  阅读：平底 */
-/* 丝带从书脊顶端伸出 */
+/* ── 书脊类型标记：顶边 2px 色线 ──────────────────────────── */
 
 .spine-ribbon {
-  position: absolute; top: -14px; left: 50%;
-  transform: translateX(-50%);
-  width: 7px; height: 20px;
-  background: #999;
+  position: absolute; top: 0; left: 0; right: 0;
+  height: 2px;
+  background: transparent;
   border-radius: 0; z-index: 5;
   pointer-events: none;
 }
-/* 燕尾：创作 — 顶端切 V 形缺口 */
-.spine-writing .spine-ribbon {
-  background: #777;
-  clip-path: polygon(0 30%, 50% 0, 100% 30%, 100% 100%, 0 100%);
-}
-/* 平底：阅读 */
-.spine-reading .spine-ribbon {
-  background: #999;
-}
+.spine-writing .spine-ribbon { background: #555; }
+.spine-reading .spine-ribbon { background: #bbb; }
 
-/* 暗色书脊上的丝带颜色适配 */
-.shelf-spine[data-color="dark"] .spine-ribbon {
-  background: #999;
-}
-.shelf-spine[data-color="dark"] .spine-writing .spine-ribbon {
-  background: #bbb;
-}
+/* 暗色书脊上的色线适配 */
+.shelf-spine[data-color="dark"] .spine-writing .spine-ribbon { background: #aaa; }
+.shelf-spine[data-color="dark"] .spine-reading .spine-ribbon { background: #ccc; }
 
 .shelf-spine:hover { transform: translateY(-5px); box-shadow: var(--shadow-md); z-index: 3; }
 .shelf-spine.active { outline: 2px solid #333; outline-offset: 2px; z-index: 4; }
