@@ -128,9 +128,8 @@ function toggleFlagNote(id) {
 // ═══════════════════════════════════════════════════════════════════════
 document.addEventListener('keydown', function (e) {
   if ((e.ctrlKey || e.metaKey) && e.key === 's') {
-    // 编辑器页面：阻止浏览器"另存为"，交给 chapter-editor 自己的 Ctrl+S
-    var textarea = document.getElementById('paper-textarea');
-    if (textarea) {
+    // 编辑器页面：阻止浏览器"另存为"，由编辑器自己的处理器保存
+    if (document.getElementById('paper-textarea')) {
       e.preventDefault();
       return;
     }

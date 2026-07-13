@@ -49,7 +49,6 @@
 
   // 稿纸平移状态
   var panState = { x: 0, y: 0, dragging: false, sx: 0, sy: 0 };
-  var flipTimer = null; // 翻页动画定时器，用于撤销时取消
 
   // 撤销/重做历史栈
   var history = {
@@ -58,9 +57,6 @@
     maxSize: 100,
     lastPush: 0,
   };
-
-  // IME 组合输入标记
-  var isComposing = false;
 
   // ═════════════════════════════════════════════════════════════
   // 动态计算每页字数
@@ -182,8 +178,7 @@
 
     state.currentPage = newPage;
 
-    clearTimeout(flipTimer);
-    flipTimer = setTimeout(function () {
+    setTimeout(function () {
       renderPage();
       flipCard.style.transition = 'none';
       flipCard.style.transform = 'rotateY(0deg)';
@@ -195,9 +190,9 @@
 
   function insertPageBreak() {
     mergePageContent();
+    pushHistory();
     var pos = textarea.selectionStart;
     state.fullContent = state.fullContent.substring(0, pos) + '\f' + state.fullContent.substring(pos);
-    pushHistory(); // 记录插入分页符之后的状态
     // 光标后的内容被推到新页
     state.currentPage = Math.min(state.currentPage + 1, getPageSegments().length);
     renderPage();
@@ -211,6 +206,7 @@
     var seg = segs[state.currentPage - 1];
     if (!seg || !seg.isEmpty) return;
 
+    pushHistory();
     var chunks = state.fullContent.split('\f');
     var ci = seg.chunkIndex;
     if (ci >= chunks.length) return;
@@ -219,7 +215,6 @@
     if (chunks.length === 1) return; // 至少保留一个段
     chunks.splice(ci, 1);
     state.fullContent = chunks.join('\f');
-    pushHistory(); // 记录删除页之后的状态
 
     // 如果当前页超出总页数，后退
     var newSegs = getPageSegments();
@@ -232,23 +227,20 @@
   // 撤销 / 重做
   // ═════════════════════════════════════════════════════════════
 
-  // 保存当前状态到历史栈（调用前确保 fullContent 已是最新）
   function pushHistory() {
     var now = Date.now();
     var entry = { content: state.fullContent, page: state.currentPage };
-    // 仅在「栈顶 + 1 秒内」合并；undo 后再输入则截断重做栈
-    var atTip = history.index === history.stack.length - 1;
-    if (atTip && history.index >= 0 && now - history.lastPush < 1000) {
+    // 1 秒内的连续输入合并为一个历史条目
+    if (history.index >= 0 && now - history.lastPush < 1000) {
       history.stack[history.index] = entry;
     } else {
-      // 丢弃"未来"重做栈，建立新分支
+      // 丢弃"未来"重做栈
       history.stack = history.stack.slice(0, history.index + 1);
       history.stack.push(entry);
       if (history.stack.length > history.maxSize) history.stack.shift();
       else history.index++;
     }
     history.lastPush = now;
-    updateUndoButtons();
   }
 
   function undo() {
@@ -264,7 +256,6 @@
   }
 
   function restoreHistory() {
-    clearTimeout(flipTimer); // 取消进行中的翻页动画
     var entry = history.stack[history.index];
     state.fullContent = entry.content;
     // 钳制页码
@@ -342,22 +333,7 @@
   // ── 应用平移+缩放变换 ─────────────────────────────────────
 
   function applyTransform() {
-    clampPan();
     paperScale.style.transform = 'translate(' + panState.x + 'px, ' + panState.y + 'px) scale(' + state.zoom + ')';
-  }
-
-  function clampPan() {
-    var pw = paperSheet.offsetWidth * state.zoom;
-    var ph = paperSheet.offsetHeight * state.zoom;
-    var vw = paperStage.clientWidth;
-    var vh = paperStage.clientHeight;
-    if (!pw || !ph || !vw || !vh) return;
-    var margin = 150; // 至少保留 150px 可见
-    var half = 0.5;
-    panState.x = Math.max(-(vw * half + pw * half - margin),
-                  Math.min(vw * half + pw * half - margin, panState.x));
-    panState.y = Math.max(-(vh * half + ph * half - margin),
-                  Math.min(vh * half + ph * half - margin, panState.y));
   }
 
   function setZoom(delta, ox, oy) {
@@ -551,8 +527,6 @@
   // ── 键盘快捷键 ────────────────────────────────────────────────
 
   function onKeydown(e) {
-    // IME 组合输入期间不拦截快捷键，让输入法正常处理
-    if (isComposing) return;
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); insertPageBreak(); }
@@ -581,26 +555,20 @@
     setPaperSize(state.paperSize);
     applyTransform();
 
-    // 先测尺寸再渲染首页，播种初始历史
+    // 先测尺寸再渲染首页
     setTimeout(function () {
       computeCharsPerPage();
       renderPage();
-      history.stack = [{ content: state.fullContent, page: state.currentPage }];
-      history.index = 0;
-      history.lastPush = 0; // 远古时间，防止首次输入被合并
-      updateUndoButtons();
     }, 100);
 
     // 输入 → 合并 + 自动保存
     textarea.addEventListener('input', function () {
       if (state.renderingPage) return;
       state.dirty = true;
-      // IME 组合输入期间不合并全文也不存历史，等 compositionend 统一处理
-      if (isComposing) { updateStats(); return; }
+      pushHistory();
       var oldTotal = state.totalPages;
       mergePageContent();
       updateStats();
-      pushHistory();
       // 内容超出当前页 → 先截断再自动翻页（带动画）
       if (state.totalPages > oldTotal && textarea.value.length > state.charsPerPage) {
         renderPage();  // textarea 截取到当前页边界
@@ -611,19 +579,8 @@
       if (indicator) { indicator.textContent = '未保存'; indicator.className = 'editor-save-indicator'; }
     });
 
-    // IME 组合输入标记
-    textarea.addEventListener('compositionstart', function () { isComposing = true; });
-    textarea.addEventListener('compositionend', function () {
-      isComposing = false;
-      // 组合结束时 textarea 中已是最终文字，合并到全文并存历史
-      mergePageContent();
-      updateStats();
-      pushHistory();
-      autoSave();
-    });
-
     textarea.addEventListener('keydown', onKeydown);
-    // 文档级 Ctrl+S：焦点不在 textarea 时也能保存
+    // 文档级 Ctrl+S：确保焦点不在 textarea 时也能保存（main.js 已阻止浏览器另存为）
     document.addEventListener('keydown', function (e) {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
         e.preventDefault();
