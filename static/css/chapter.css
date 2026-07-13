@@ -257,6 +257,7 @@
 .paper-stage.grabbing { cursor: grabbing; }
 
 .paper-scale {
+  min-height: 0; /* 允许 flex 收缩，防止稿纸把状态栏推出 viewport */
   transform-origin: center center;
   transition: transform 0.15s ease-out;
 }
@@ -343,6 +344,7 @@
   font-size: 0.76rem; color: var(--text-muted);
   background: var(--surface); border: 1px solid var(--border-light);
   border-radius: var(--radius);
+  flex-shrink: 0; /* 状态栏始终可见，不被推出 viewport */
 }
 .paper-status strong { color: var(--text); font-weight: 500; }
 .paper-page-nav { display: flex; gap: 0.3rem; }

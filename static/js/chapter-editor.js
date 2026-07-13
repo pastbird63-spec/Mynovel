@@ -88,7 +88,7 @@
   // ═════════════════════════════════════════════════════════════
 
   function getCharWeight(ch) {
-    // 特殊控制字符
+    if (ch === '\f') return 0;  // 分页符不计权重（已在 split 时处理）
     if (ch === '\n' || ch === '\r' || ch === '\t') return 1.0;
     var code = ch.charCodeAt(0);
     // 全角区间：中文 / 日文假名 / 韩文 / 全角标点 → 宽度 ≈ 字号
@@ -622,6 +622,15 @@
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); insertPageBreak(); }
+    if (e.key === 'Tab') {
+      e.preventDefault();
+      // 插入两个全角空格（精确缩进两个汉字），同时触发 input 事件走完整编辑流程
+      var pos = textarea.selectionStart;
+      var indent = '　　';
+      textarea.setRangeText(indent, pos, textarea.selectionEnd, 'end');
+      textarea.dispatchEvent(new Event('input', { bubbles: true }));
+      return;
+    }
     if (e.key === 'Escape') {
       if (state.refOpen && state.refView === 'detail') {
         renderRefList(state.refTab, state.refData[state.refTab]);
