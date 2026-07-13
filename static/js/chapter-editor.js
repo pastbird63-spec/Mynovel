@@ -45,6 +45,10 @@
   var refPanelTitle = $('ref-panel-title');
   var flipOverlay = $('page-flip-overlay');
   var flipCard = $('page-flip-card');
+  var paperStage = $('paper-stage');
+
+  // 稿纸平移状态
+  var panState = { x: 0, y: 0, dragging: false, sx: 0, sy: 0 };
 
   // ═════════════════════════════════════════════════════════════
   // 动态计算每页字数
@@ -267,9 +271,22 @@
     recalcAndRender();
   }
 
-  function setZoom(delta) {
-    state.zoom = Math.max(0.5, Math.min(2.0, +(state.zoom + delta).toFixed(1)));
-    paperScale.style.transform = 'scale(' + state.zoom + ')';
+  // ── 应用平移+缩放变换 ─────────────────────────────────────
+
+  function applyTransform() {
+    paperScale.style.transform = 'translate(' + panState.x + 'px, ' + panState.y + 'px) scale(' + state.zoom + ')';
+  }
+
+  function setZoom(delta, ox, oy) {
+    var oldZoom = state.zoom;
+    var newZoom = Math.max(0.5, Math.min(2.0, +(oldZoom + delta).toFixed(1)));
+    if (ox !== undefined) {
+      // 绕鼠标位置缩放
+      panState.x = ox - (ox - panState.x) * newZoom / oldZoom;
+      panState.y = oy - (oy - panState.y) * newZoom / oldZoom;
+    }
+    state.zoom = newZoom;
+    applyTransform();
     $('editor-zoom-val').textContent = Math.round(state.zoom * 100) + '%';
   }
 
@@ -476,7 +493,7 @@
     setPaperStyle(state.paperStyle);
     setPaperColor(state.paperColor);
     setPaperSize(state.paperSize);
-    paperScale.style.transform = 'scale(' + state.zoom + ')';
+    applyTransform();
 
     // 先测尺寸再渲染首页
     setTimeout(function () {
@@ -527,11 +544,47 @@
     refSidebar.querySelectorAll('.ref-tab').forEach(function (tab) {
       tab.addEventListener('click', function () { switchRefTab(tab.dataset.ref); });
     });
-    $('paper-stage').addEventListener('click', function (e) {
-      if (state.refOpen && e.target === this) toggleRef();
+    // ── 稿纸拖拽平移（Pan）──────────────────────────────────
+    paperStage.addEventListener('mousedown', function (e) {
+      // 只拖拽空白区域，不拦截稿纸/按钮/状态栏的点击
+      if (e.target.closest('.paper-sheet') || e.target.closest('.paper-status') ||
+          e.target.closest('button') || e.target.closest('a')) return;
+      if (e.button !== 0) return; // 左键
+      e.preventDefault();
+      panState.dragging = true;
+      panState.sx = e.clientX - panState.x;
+      panState.sy = e.clientY - panState.y;
+      paperStage.classList.add('grabbing');
     });
-    $('paper-stage').addEventListener('wheel', function (e) {
-      if (e.ctrlKey) { e.preventDefault(); setZoom(e.deltaY < 0 ? 0.1 : -0.1); }
+    document.addEventListener('mousemove', function (e) {
+      if (!panState.dragging) return;
+      panState.x = e.clientX - panState.sx;
+      panState.y = e.clientY - panState.sy;
+      applyTransform();
+    });
+    document.addEventListener('mouseup', function () {
+      if (!panState.dragging) return;
+      panState.dragging = false;
+      paperStage.classList.remove('grabbing');
+    });
+    // 参考书关闭（点击空白区域）
+    paperStage.addEventListener('click', function (e) {
+      if (state.refOpen && !e.target.closest('.paper-sheet') && !e.target.closest('button')) {
+        toggleRef();
+      }
+    });
+    // 滚轮：Ctrl=缩放（绕鼠标），普通=平移
+    paperStage.addEventListener('wheel', function (e) {
+      if (e.ctrlKey) {
+        e.preventDefault();
+        var rect = paperStage.getBoundingClientRect();
+        setZoom(e.deltaY < 0 ? 0.1 : -0.1, e.clientX - rect.left, e.clientY - rect.top);
+      } else {
+        e.preventDefault();
+        panState.y -= e.deltaY;
+        if (e.shiftKey || Math.abs(e.deltaX) > 0) panState.x -= e.deltaX || e.deltaY;
+        applyTransform();
+      }
     }, { passive: false });
 
     window.addEventListener('beforeunload', function () {

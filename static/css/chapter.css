@@ -246,12 +246,15 @@
 
 .paper-stage {
   flex: 1; display: flex; flex-direction: column;
-  align-items: center; justify-content: flex-start;
-  overflow-y: auto; overflow-x: hidden;
+  align-items: center; justify-content: center;
+  overflow: hidden;
   padding: 1.5rem;
   background: var(--bg);
   min-width: 0; /* 防止 flex 子元素溢出 */
+  cursor: grab;
+  user-select: none;
 }
+.paper-stage.grabbing { cursor: grabbing; }
 
 .paper-scale {
   transform-origin: center center;
@@ -266,6 +269,7 @@
   position: relative; overflow: hidden;
   display: flex; flex-direction: column;
   transition: width 0.2s ease;
+  cursor: default;
 }
 
 /* A4 尺寸（同比例放大） */
@@ -319,7 +323,8 @@
   font-family: var(--font-serif); font-size: 18px;
   color: var(--text);
   background: transparent;
-  overflow-y: auto;
+  overflow: hidden;
+  cursor: text;
 }
 .paper-textarea::placeholder { color: #ccc; }
 .paper-textarea:focus { outline: none; }
