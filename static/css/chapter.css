@@ -253,6 +253,7 @@
   min-width: 0; /* 防止 flex 子元素溢出 */
   cursor: grab;
   user-select: none;
+  position: relative; /* 为状态栏绝对定位提供参考 */
 }
 .paper-stage.grabbing { cursor: grabbing; }
 
@@ -340,11 +341,14 @@
 
 .paper-status {
   display: flex; align-items: center; justify-content: center;
-  gap: 1.5rem; padding: 0.5rem 1rem; margin-top: 0.6rem;
+  gap: 1.5rem; padding: 0.5rem 1rem;
   font-size: 0.76rem; color: var(--text-muted);
   background: var(--surface); border: 1px solid var(--border-light);
   border-radius: var(--radius);
-  flex-shrink: 0; /* 状态栏始终可见，不被推出 viewport */
+  position: absolute; bottom: 1.5rem; left: 50%;
+  transform: translateX(-50%);
+  z-index: 10; /* 浮于稿纸之上，永不遮盖 */
+  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
 }
 .paper-status strong { color: var(--text); font-weight: 500; }
 .paper-page-nav { display: flex; gap: 0.3rem; }
