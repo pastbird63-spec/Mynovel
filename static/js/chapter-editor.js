@@ -109,6 +109,13 @@
     var nextBtn = $('btn-next-page');
     if (prevBtn) prevBtn.disabled = state.currentPage <= 1;
     if (nextBtn) nextBtn.disabled = state.currentPage >= state.totalPages;
+
+    // 当前页是否空白（删除按钮显隐）
+    var seg = segs[state.currentPage - 1];
+    var delBtn = $('btn-delete-page');
+    if (delBtn) {
+      delBtn.style.display = (seg && seg.isEmpty && segs.length > 1) ? '' : 'none';
+    }
   }
 
   // ── 提取当前页内容填入 textarea ────────────────────────────
@@ -121,11 +128,6 @@
     textarea.value = state.fullContent.substring(seg.start, seg.end);
     state.renderingPage = false;
     updateStats();
-    // 显示/隐藏删除按钮
-    var delBtn = $('btn-delete-page');
-    if (delBtn) {
-      delBtn.style.display = (seg.isEmpty && segs.length > 1) ? '' : 'none';
-    }
   }
 
   // ── 合并：把 textarea 内容写回全文 ──────────────────────────
