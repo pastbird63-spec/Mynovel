@@ -58,15 +58,17 @@
   </div>
 
   {# 稿纸区域 #}
-  <div class="paper-stage" id="paper-stage">
-    <div class="paper-scale" id="paper-scale">
-      <div class="paper-sheet" id="paper-sheet">
-        <textarea
-          class="paper-textarea"
-          id="paper-textarea"
-          placeholder="开始写作..."
-          spellcheck="false"
-        >{{ chapter.content or '' }}</textarea>
+  <div class="editor-workspace">
+    <div class="paper-stage" id="paper-stage">
+      <div class="paper-scale" id="paper-scale">
+        <div class="paper-sheet" id="paper-sheet">
+          <textarea
+            class="paper-textarea"
+            id="paper-textarea"
+            placeholder="开始写作..."
+            spellcheck="false"
+          >{{ chapter.content or '' }}</textarea>
+        </div>
       </div>
     </div>
 

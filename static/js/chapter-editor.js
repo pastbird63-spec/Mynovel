@@ -333,7 +333,22 @@
   // ── 应用平移+缩放变换 ─────────────────────────────────────
 
   function applyTransform() {
+    clampPan();
     paperScale.style.transform = 'translate(' + panState.x + 'px, ' + panState.y + 'px) scale(' + state.zoom + ')';
+  }
+
+  function clampPan() {
+    var pw = paperSheet.offsetWidth * state.zoom;
+    var ph = paperSheet.offsetHeight * state.zoom;
+    var vw = paperStage.clientWidth;
+    var vh = paperStage.clientHeight;
+    if (!pw || !ph || !vw || !vh) return;
+    var margin = 150; // 至少保留 150px 可见
+    var half = 0.5;
+    panState.x = Math.max(-(vw * half + pw * half - margin),
+                  Math.min(vw * half + pw * half - margin, panState.x));
+    panState.y = Math.max(-(vh * half + ph * half - margin),
+                  Math.min(vh * half + ph * half - margin, panState.y));
   }
 
   function setZoom(delta, ox, oy) {
