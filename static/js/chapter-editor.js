@@ -58,6 +58,9 @@
     lastPush: 0,
   };
 
+  // IME 组合输入标记
+  var isComposing = false;
+
   // ═════════════════════════════════════════════════════════════
   // 动态计算每页字数
   // ═════════════════════════════════════════════════════════════
@@ -542,6 +545,8 @@
   // ── 键盘快捷键 ────────────────────────────────────────────────
 
   function onKeydown(e) {
+    // IME 组合输入期间不拦截快捷键，让输入法正常处理
+    if (isComposing) return;
     if ((e.ctrlKey || e.metaKey) && e.key === 's') { e.preventDefault(); saveNow(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
     if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return; }
@@ -581,7 +586,10 @@
     textarea.addEventListener('input', function () {
       if (state.renderingPage) return;
       state.dirty = true;
-      pushHistory();
+      // IME 组合输入期间不推历史，等 compositionend 再处理
+      if (!isComposing) {
+        pushHistory();
+      }
       var oldTotal = state.totalPages;
       mergePageContent();
       updateStats();
@@ -593,6 +601,17 @@
       autoSave();
       var indicator = $('save-indicator');
       if (indicator) { indicator.textContent = '未保存'; indicator.className = 'editor-save-indicator'; }
+    });
+
+    // IME 组合输入标记
+    textarea.addEventListener('compositionstart', function () { isComposing = true; });
+    textarea.addEventListener('compositionend', function () {
+      isComposing = false;
+      // 组合结束后补推历史（此时 textarea 中已是最终文字）
+      pushHistory();
+      mergePageContent();
+      updateStats();
+      autoSave();
     });
 
     textarea.addEventListener('keydown', onKeydown);
