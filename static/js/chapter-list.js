@@ -219,7 +219,9 @@
 
     function updateAccept() {
       var fmt = getFormat();
-      fileInput.accept = fmt === 'txt' ? '.txt' : '.docx';
+      if (fmt === 'txt') fileInput.accept = '.txt';
+      else if (fmt === 'docx') fileInput.accept = '.docx';
+      else fileInput.accept = '.epub';
     }
 
     function resetFileSelection() {
@@ -234,7 +236,8 @@
 
     function updateOptions() {
       var format = getFormat();
-      optionGroup.style.display = 'block';
+      // EPUB 天然按章节拆分，无需额外选项
+      optionGroup.style.display = (format === 'epub') ? 'none' : 'block';
       optionSplitBlank.style.display = (format === 'txt') ? '' : 'none';
       optionSplitHeading.style.display = (format === 'docx') ? '' : 'none';
       if (format === 'txt') {
@@ -250,7 +253,7 @@
 
       // 过滤出符合当前格式的文件
       var format = getFormat();
-      var wantExt = format === 'txt' ? 'txt' : 'docx';
+      var wantExt = format === 'txt' ? 'txt' : format === 'docx' ? 'docx' : 'epub';
       var valid = [];
       for (var i = 0; i < files.length; i++) {
         var ext = files[i].name.split('.').pop().toLowerCase();

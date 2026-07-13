@@ -4,7 +4,7 @@ import io
 import os
 from flask import Blueprint, request, jsonify
 from models import db, Book, Chapter
-from docx_utils import parse_docx, parse_txt
+from docx_utils import parse_docx, parse_txt, parse_epub
 
 import_bp = Blueprint('import_', __name__, url_prefix='/import')
 
@@ -184,4 +184,124 @@ def import_docx(book_id):
         'created': all_created,
         'total_word_count': sum(c['word_count'] for c in all_created),
         'errors': errors if errors else None,
+    }), 201
+
+
+# ═════════════════════════════════════════════════════════════════
+# EPUB 导入
+# ═════════════════════════════════════════════════════════════════
+
+@import_bp.route('/<int:book_id>/epub', methods=['POST'])
+def import_epub(book_id):
+    """上传一个或多个 EPUB 文件到已有书中，按章节导入"""
+    Book.query.get_or_404(book_id)
+
+    files = request.files.getlist('files')
+    if not files or all(not f.filename for f in files):
+        return jsonify({'error': '请选择文件'}), 400
+
+    if len(files) > MAX_FILES:
+        return jsonify({'error': f'一次最多导入 {MAX_FILES} 个文件'}), 400
+
+    all_created = []
+    errors = []
+
+    for file in files:
+        if not file.filename:
+            continue
+
+        if not file.filename.lower().endswith('.epub'):
+            errors.append(f'{file.filename}: 不是 .epub 文件')
+            continue
+
+        file.seek(0, os.SEEK_END)
+        size = file.tell()
+        file.seek(0)
+        if size > MAX_UPLOAD_BYTES:
+            errors.append(f'{file.filename}: 文件过大')
+            continue
+
+        file_bytes = file.read()
+
+        try:
+            parsed = parse_epub(io.BytesIO(file_bytes))
+        except ImportError as e:
+            errors.append(f'{file.filename}: {e}')
+            continue
+        except Exception as e:
+            errors.append(f'{file.filename}: 解析失败（{e}）')
+            continue
+
+        if not parsed['chapters']:
+            errors.append(f'{file.filename}: 未提取到文字')
+            continue
+
+        default_title = os.path.splitext(file.filename)[0]
+        for item in parsed['chapters']:
+            if not item['title'].strip():
+                item['title'] = default_title
+
+        created = _create_chapters(book_id, parsed['chapters'])
+        all_created.extend(created)
+
+    if not all_created and errors:
+        return jsonify({'error': '；'.join(errors)}), 400
+
+    return jsonify({
+        'ok': True,
+        'created': all_created,
+        'total_word_count': sum(c['word_count'] for c in all_created),
+        'errors': errors if errors else None,
+    }), 201
+
+
+# ── 书架页一键导入 EPUB（创建书 + 导入章节）────────────────
+
+@import_bp.route('/api/books/import-epub', methods=['POST'])
+def import_epub_quick():
+    """书架页一键导入：根据 EPUB 文件创建阅读类书籍并导入章节"""
+    file = request.files.get('file')
+    if not file or not file.filename:
+        return jsonify({'error': '请选择文件'}), 400
+
+    if not file.filename.lower().endswith('.epub'):
+        return jsonify({'error': '只支持 .epub 格式'}), 400
+
+    file.seek(0, os.SEEK_END)
+    size = file.tell()
+    file.seek(0)
+    if size > MAX_UPLOAD_BYTES:
+        return jsonify({'error': f'文件过大（最大 {MAX_UPLOAD_BYTES // 1024 // 1024}MB）'}), 400
+
+    file_bytes = file.read()
+
+    try:
+        parsed = parse_epub(io.BytesIO(file_bytes))
+    except ImportError as e:
+        return jsonify({'error': str(e)}), 500
+    except Exception as e:
+        return jsonify({'error': f'解析失败：{e}'}), 400
+
+    if not parsed['chapters']:
+        return jsonify({'error': '未提取到文字内容'}), 400
+
+    book_title = parsed['title'] or os.path.splitext(file.filename)[0]
+    book = Book(
+        title=book_title,
+        type='reading',
+    )
+    db.session.add(book)
+    db.session.flush()
+
+    created = _create_chapters(book.id, parsed['chapters'])
+
+    return jsonify({
+        'ok': True,
+        'book': {
+            'id': book.id,
+            'title': book.title,
+            'type': book.type,
+        },
+        'created': created,
+        'total_word_count': sum(c['word_count'] for c in created),
     }), 201

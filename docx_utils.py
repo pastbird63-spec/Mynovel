@@ -7,6 +7,7 @@
 
 import io
 import re
+from html.parser import HTMLParser
 from docx import Document
 from docx.shared import Pt, Cm, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -381,3 +382,138 @@ def parse_txt(text: str, split_by_blank_lines: bool = False):
             'content': '\n'.join(lines[content_start:]).strip(),
         })
     return chapters
+
+
+# ── EPUB 导入 ──────────────────────────────────────────────────────
+
+class _HTMLStripper(HTMLParser):
+    """从 HTML 中提取纯文本，保留段落结构。"""
+    def __init__(self):
+        super().__init__()
+        self.text = []
+        self._skip = False
+
+    def handle_starttag(self, tag, attrs):
+        if tag in ('br', 'p', 'div', 'li', 'tr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
+            self.text.append('\n')
+        if tag in ('script', 'style', 'head', 'title'):
+            self._skip = True
+
+    def handle_endtag(self, tag):
+        if tag in ('p', 'div', 'li', 'tr', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'):
+            self.text.append('\n')
+        if tag in ('script', 'style', 'head', 'title'):
+            self._skip = False
+
+    def handle_data(self, data):
+        if not self._skip:
+            self.text.append(data)
+
+    def get_text(self):
+        raw = ''.join(self.text)
+        # 压缩多个连续换行为双换行（段落分隔）
+        raw = re.sub(r'\n{3,}', '\n\n', raw)
+        # 清理每行多余空白
+        lines = [line.strip() for line in raw.split('\n')]
+        return '\n'.join(lines)
+
+
+def parse_epub(filepath_or_stream):
+    """解析 EPUB 文件，提取文本和章节结构。
+
+    参数：
+      filepath_or_stream: str 路径 或 io.BytesIO 对象
+
+    返回：
+      {
+        'title': str,
+        'chapters': [{'title': str, 'content': str}, ...]
+      }
+
+    映射规则：
+      - EPUB spine 中的每个 XHTML 文档 → 一章
+      - 文档中的 <h1> 优先作为章节标题，其次是 <title>
+      - HTML 标签被剥离，保留段落换行
+    """
+    try:
+        from ebooklib import epub as epub_lib
+    except ImportError:
+        raise ImportError('请安装 ebooklib：pip install ebooklib')
+
+    book = epub_lib.read_epub(filepath_or_stream)
+
+    # 提取书名
+    title = ''
+    titles = book.get_metadata('DC', 'title')
+    if titles:
+        title = titles[0][0]
+
+    chapters = []
+    stripper = _HTMLStripper()
+
+    # 遍历 spine（阅读顺序）
+    for item_id in book.spine:
+        try:
+            item_id_str = item_id[0] if isinstance(item_id, tuple) else item_id
+        except (IndexError, TypeError):
+            continue
+
+        item = book.get_item_with_id(item_id_str)
+        if item is None:
+            continue
+
+        # 只处理 XHTML/HTML 文档
+        content_type = item.get_type()
+        if content_type not in (
+            'application/xhtml+xml',
+            'text/html',
+            'application/xml',
+            'text/xml',
+        ):
+            # ebooklib 有时返回数字类型码，也可以检查 media_type 属性
+            media = getattr(item, 'media_type', '')
+            if not media or 'html' not in media and 'xml' not in media:
+                continue
+
+        raw = item.get_content().decode('utf-8', errors='replace')
+
+        # 提取标题：优先 <h1>，其次 <title>
+        ch_title = ''
+        h1_match = re.search(r'<h1[^>]*>(.*?)</h1>', raw, re.IGNORECASE | re.DOTALL)
+        if h1_match:
+            ch_title = re.sub(r'<[^>]+>', '', h1_match.group(1)).strip()
+        if not ch_title:
+            title_match = re.search(r'<title[^>]*>(.*?)</title>', raw, re.IGNORECASE | re.DOTALL)
+            if title_match:
+                ch_title = re.sub(r'<[^>]+>', '', title_match.group(1)).strip()
+
+        # 去除 <body> 之外的内容
+        body_match = re.search(r'<body[^>]*>(.*?)</body>', raw, re.IGNORECASE | re.DOTALL)
+        if body_match:
+            raw = body_match.group(1)
+
+        # 提取纯文本
+        stripper.text = []
+        stripper._skip = False
+        stripper.feed(raw)
+        text = stripper.get_text()
+
+        if not text.strip():
+            continue
+
+        chapters.append({
+            'title': ch_title,
+            'content': text.strip(),
+        })
+
+    # 如果没有检测到章节（spine 为空或无 HTML 项），尝试回退读取全部
+    if not chapters:
+        chapters.append({
+            'title': '',
+            'content': title or '',
+        })
+
+    return {
+        'title': title,
+        'chapters': chapters,
+    }
