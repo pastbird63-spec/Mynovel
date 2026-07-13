@@ -1,5 +1,5 @@
 // ═════════════════════════════════════════════════════════════════════════
-// 章节列表 — 内联新建、删除、拖拽排序、进入编辑器
+// 章节列表 — 新建、删除、拖拽排序、导入、导出
 // ═════════════════════════════════════════════════════════════════════════
 
 (function () {
@@ -8,6 +8,7 @@
   var bookId = window.CHAPTER_BOOK_ID;
   var chapters = [];
   var dragIdx = -1;
+  var selectedFile = null;
 
   // ── 加载列表 ──────────────────────────────────────────────────────
 
@@ -26,7 +27,6 @@
     var container = document.getElementById('chapter-items');
     var empty = document.getElementById('chapter-empty');
 
-    // 保留空状态和新建表单
     var formEl = document.getElementById('new-chapter-form');
 
     if (chapters.length === 0) {
@@ -47,11 +47,9 @@
         + '</div>';
     });
 
-    // 清除旧列表项，保留表单和空状态
     removeItems(container, [empty, formEl]);
     container.insertAdjacentHTML('beforeend', h);
 
-    // 绑定事件
     bindEvents(container);
   }
 
@@ -127,7 +125,6 @@
   // ── 内联新建表单 ──────────────────────────────────────────────────
 
   function showNewChapterForm() {
-    // 如果已有表单，聚焦即可
     var existing = document.getElementById('new-chapter-form');
     if (existing) {
       var input = existing.querySelector('input');
@@ -183,6 +180,181 @@
     cancelBtn.addEventListener('click', function () { form.remove(); });
   }
 
+  // ── 导出下拉菜单 ──────────────────────────────────────────────────
+
+  function initExportDropdown() {
+    var toggle = document.getElementById('btn-export-toggle');
+    var menu = document.getElementById('export-menu');
+
+    toggle.addEventListener('click', function (e) {
+      e.stopPropagation();
+      menu.classList.toggle('open');
+    });
+
+    document.addEventListener('click', function () {
+      menu.classList.remove('open');
+    });
+  }
+
+  // ── 导入 ──────────────────────────────────────────────────────────
+
+  function initImport() {
+    var modal = document.getElementById('import-modal');
+    var fileInput = document.getElementById('import-file-input');
+    var dropZone = document.getElementById('file-drop-zone');
+    var dropText = document.getElementById('file-drop-text');
+    var fileInfo = document.getElementById('file-info');
+    var fileName = document.getElementById('file-name');
+    var fileSize = document.getElementById('file-size');
+    var optionGroup = document.getElementById('import-option-group');
+    var optionSplitBlank = document.getElementById('option-split-blank');
+    var optionSplitHeading = document.getElementById('option-split-heading');
+    var confirmBtn = document.getElementById('btn-import-confirm');
+    var msgEl = document.getElementById('import-msg');
+
+    function resetModal() {
+      selectedFile = null;
+      fileInput.value = '';
+      fileInfo.style.display = 'none';
+      dropText.style.display = '';
+      optionGroup.style.display = 'none';
+      optionSplitBlank.style.display = 'none';
+      optionSplitHeading.style.display = 'none';
+      document.getElementById('chk-split-blank').checked = false;
+      document.getElementById('chk-split-heading').checked = false;
+      confirmBtn.disabled = true;
+      msgEl.textContent = '';
+      document.querySelector('input[name="import-format"][value="txt"]').checked = true;
+    }
+
+    function showModal() {
+      resetModal();
+      modal.style.display = 'flex';
+    }
+
+    function hideModal() {
+      modal.style.display = 'none';
+    }
+
+    function updateOptions() {
+      var format = document.querySelector('input[name="import-format"]:checked').value;
+      optionGroup.style.display = 'block';
+      optionSplitBlank.style.display = (format === 'txt') ? '' : 'none';
+      optionSplitHeading.style.display = (format === 'docx') ? '' : 'none';
+      if (format === 'txt') {
+        document.getElementById('chk-split-heading').checked = false;
+      } else {
+        document.getElementById('chk-split-blank').checked = false;
+      }
+    }
+
+    function selectFile(file) {
+      if (!file) return;
+      var ext = file.name.split('.').pop().toLowerCase();
+      var expectedFormat = document.querySelector('input[name="import-format"]:checked').value;
+      if ((expectedFormat === 'txt' && ext !== 'txt') ||
+          (expectedFormat === 'docx' && ext !== 'docx')) {
+        msgEl.textContent = '文件格式与所选类型不匹配';
+        return;
+      }
+      selectedFile = file;
+      fileName.textContent = file.name;
+      fileSize.textContent = formatBytes(file.size);
+      fileInfo.style.display = '';
+      dropText.style.display = 'none';
+      confirmBtn.disabled = false;
+      msgEl.textContent = '';
+      updateOptions();
+    }
+
+    function doImport() {
+      if (!selectedFile) return;
+
+      var format = document.querySelector('input[name="import-format"]:checked').value;
+      var formData = new FormData();
+      formData.append('file', selectedFile);
+
+      if (format === 'txt') {
+        var split = document.getElementById('chk-split-blank').checked;
+        if (split) formData.append('split', 'true');
+      }
+      if (format === 'docx') {
+        var splitH = document.getElementById('chk-split-heading').checked;
+        if (splitH) formData.append('split_by_heading', 'true');
+      }
+
+      confirmBtn.disabled = true;
+      confirmBtn.textContent = '…';
+      msgEl.textContent = '导入中…';
+      msgEl.className = 'modal-msg';
+
+      var url = '/import/' + bookId + '/' + format;
+
+      fetch(url, { method: 'POST', body: formData })
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+          if (data.error) {
+            msgEl.textContent = data.error;
+            msgEl.className = 'modal-msg modal-msg-error';
+            confirmBtn.disabled = false;
+            confirmBtn.textContent = '导入';
+            return;
+          }
+          msgEl.textContent = '已创建 ' + data.created.length + ' 个章节，共 ' + data.total_word_count + ' 字';
+          msgEl.className = 'modal-msg modal-msg-ok';
+          confirmBtn.textContent = '完成';
+          setTimeout(function () {
+            hideModal();
+            loadChapters();
+          }, 1500);
+        })
+        .catch(function (err) {
+          msgEl.textContent = '导入失败：' + err.message;
+          msgEl.className = 'modal-msg modal-msg-error';
+          confirmBtn.disabled = false;
+          confirmBtn.textContent = '导入';
+        });
+    }
+
+    // 事件绑定
+    document.getElementById('btn-import').addEventListener('click', showModal);
+    document.getElementById('btn-import-close').addEventListener('click', hideModal);
+    document.getElementById('btn-import-cancel').addEventListener('click', hideModal);
+    modal.addEventListener('click', function (e) {
+      if (e.target === modal) hideModal();
+    });
+
+    confirmBtn.addEventListener('click', doImport);
+
+    // 格式切换
+    document.querySelectorAll('input[name="import-format"]').forEach(function (radio) {
+      radio.addEventListener('change', function () {
+        resetModal();
+        updateOptions();
+      });
+    });
+
+    // 文件选择
+    dropZone.addEventListener('click', function () { fileInput.click(); });
+    fileInput.addEventListener('change', function () {
+      if (fileInput.files[0]) selectFile(fileInput.files[0]);
+    });
+
+    // 拖拽
+    dropZone.addEventListener('dragover', function (e) {
+      e.preventDefault();
+      dropZone.classList.add('dragover');
+    });
+    dropZone.addEventListener('dragleave', function () {
+      dropZone.classList.remove('dragover');
+    });
+    dropZone.addEventListener('drop', function (e) {
+      e.preventDefault();
+      dropZone.classList.remove('dragover');
+      if (e.dataTransfer.files[0]) selectFile(e.dataTransfer.files[0]);
+    });
+  }
+
   // ── HTML 转义 ─────────────────────────────────────────────────────
 
   function esc(s) {
@@ -192,9 +364,17 @@
     return d.innerHTML;
   }
 
+  function formatBytes(b) {
+    if (b < 1024) return b + ' B';
+    if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';
+    return (b / 1048576).toFixed(1) + ' MB';
+  }
+
   // ── 初始化 ────────────────────────────────────────────────────────
 
   document.getElementById('btn-new-chapter').addEventListener('click', showNewChapterForm);
+  initExportDropdown();
+  initImport();
   loadChapters();
 
 })();

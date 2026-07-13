@@ -35,6 +35,13 @@
       <span class="editor-zoom-val" id="editor-zoom-val">100%</span>
       <button class="editor-tool-btn" id="btn-zoom-in" title="放大">+</button>
     </div>
+    <div class="tool-dropdown" id="editor-export-dropdown">
+      <button class="editor-tool-btn" id="btn-export-chapter" title="导出本章">导出 ▼</button>
+      <div class="tool-dropdown-menu" id="editor-export-menu">
+        <a href="/export/chapter/{{ chapter.id }}/txt" class="tool-dropdown-item">导出本章 TXT</a>
+        <a href="/export/chapter/{{ chapter.id }}/docx" class="tool-dropdown-item">导出本章 DOCX</a>
+      </div>
+    </div>
     <span class="editor-save-indicator" id="save-indicator" title="Ctrl+S 立即保存">已保存</span>
   </div>
 </div>

@@ -772,6 +772,19 @@
     });
 
     if (!textarea.value) textarea.focus();
+
+    // 导出下拉菜单
+    var exportToggle = document.getElementById('btn-export-chapter');
+    var exportMenu = document.getElementById('editor-export-menu');
+    if (exportToggle && exportMenu) {
+      exportToggle.addEventListener('click', function (e) {
+        e.stopPropagation();
+        exportMenu.classList.toggle('open');
+      });
+      document.addEventListener('click', function () {
+        exportMenu.classList.remove('open');
+      });
+    }
   }
 
   init();

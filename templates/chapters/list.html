@@ -9,12 +9,65 @@
   <div class="chapter-list-header">
     <a href="{{ url_for('books.index', book_id=book.id) }}" class="chapter-back">&larr; 返回书架</a>
     <h1>{{ book.title }}</h1>
-    <button class="btn btn-primary" id="btn-new-chapter">＋ 新建章节</button>
+    <button class="btn btn-primary btn-sm" id="btn-new-chapter">＋ 新建</button>
+    <div class="tool-dropdown" id="export-dropdown">
+      <button class="btn btn-outline-secondary btn-sm" id="btn-export-toggle">导出 ▼</button>
+      <div class="tool-dropdown-menu" id="export-menu">
+        <a href="{{ url_for('export.book_txt', book_id=book.id) }}" class="tool-dropdown-item">导出全书 TXT</a>
+        <a href="{{ url_for('export.book_docx', book_id=book.id) }}" class="tool-dropdown-item">导出全书 DOCX（合并）</a>
+        <a href="{{ url_for('export.book_docx_zip', book_id=book.id) }}" class="tool-dropdown-item">导出全书 DOCX（分章 zip）</a>
+      </div>
+    </div>
+    <button class="btn btn-outline-secondary btn-sm" id="btn-import">导入</button>
   </div>
 
   <div class="chapter-items" id="chapter-items">
     <div class="chapter-empty-state" id="chapter-empty">
-      <p>还没有章节，点击「新建章节」开始写作</p>
+      <p>还没有章节，点击「新建」开始写作</p>
+    </div>
+  </div>
+</div>
+
+{# ── 导入模态框 ───────────────────────────────────────────── #}
+<div class="modal-overlay" id="import-modal" style="display:none">
+  <div class="modal-box">
+    <div class="modal-header">
+      <span class="modal-title">导入章节</span>
+      <button class="modal-close" id="btn-import-close">&times;</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group">
+        <label class="form-label">文件格式</label>
+        <div class="radio-group">
+          <label class="radio-label"><input type="radio" name="import-format" value="txt" checked> TXT</label>
+          <label class="radio-label"><input type="radio" name="import-format" value="docx"> DOCX</label>
+        </div>
+      </div>
+      <div class="form-group">
+        <label class="form-label">选择文件</label>
+        <div class="file-drop-zone" id="file-drop-zone">
+          <span id="file-drop-text">拖拽文件到此处，或点击选择</span>
+          <input type="file" id="import-file-input" accept=".txt,.docx" style="display:none">
+        </div>
+        <div class="file-info" id="file-info" style="display:none">
+          <span id="file-name"></span>
+          <span class="file-size" id="file-size"></span>
+        </div>
+      </div>
+      <div class="form-group" id="import-option-group" style="display:none">
+        <label class="form-label">导入选项</label>
+        <label class="checkbox-label" id="option-split-blank" style="display:none">
+          <input type="checkbox" id="chk-split-blank"> 按连续空行自动拆分章节
+        </label>
+        <label class="checkbox-label" id="option-split-heading" style="display:none">
+          <input type="checkbox" id="chk-split-heading"> 按标题自动拆分章节
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <span class="modal-msg" id="import-msg"></span>
+      <button class="btn btn-outline-secondary btn-sm" id="btn-import-cancel">取消</button>
+      <button class="btn btn-primary btn-sm" id="btn-import-confirm" disabled>导入</button>
     </div>
   </div>
 </div>
