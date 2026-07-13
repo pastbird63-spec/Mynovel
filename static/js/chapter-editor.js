@@ -50,13 +50,17 @@
   // 稿纸平移状态
   var panState = { x: 0, y: 0, dragging: false, sx: 0, sy: 0 };
 
-  // 撤销/重做历史栈
+  // 撤销/重做历史栈（仿 Word 行为）
   var history = {
     stack: [],
     index: -1,
     maxSize: 100,
     lastPush: 0,
+    seeded: false, // 是否已播种初始状态
   };
+
+  // 自动翻页标记 — 防止 flipPage 重复合并截断后的 textarea
+  var _autoPaging = false;
 
   // ═════════════════════════════════════════════════════════════
   // 动态计算每页字数
@@ -160,8 +164,9 @@
     var newPage = state.currentPage + direction;
     if (newPage < 1 || newPage > state.totalPages) return;
 
-    // 翻前先合并当前页的编辑
-    mergePageContent();
+    // 自动翻页时跳过合并：input handler 已合并完整内容，
+    // 此时 textarea 被 renderPage 截断过，再次合并会破坏全文
+    if (!_autoPaging) mergePageContent();
 
     var paperRect = paperSheet.getBoundingClientRect();
     flipCard.style.left = paperRect.left + 'px';
@@ -190,9 +195,9 @@
 
   function insertPageBreak() {
     mergePageContent();
+    pushHistory();
     var pos = textarea.selectionStart;
     state.fullContent = state.fullContent.substring(0, pos) + '\f' + state.fullContent.substring(pos);
-    pushHistory();  // 记录插入分页符之后的状态
     // 光标后的内容被推到新页
     state.currentPage = Math.min(state.currentPage + 1, getPageSegments().length);
     renderPage();
@@ -206,6 +211,7 @@
     var seg = segs[state.currentPage - 1];
     if (!seg || !seg.isEmpty) return;
 
+    pushHistory();
     var chunks = state.fullContent.split('\f');
     var ci = seg.chunkIndex;
     if (ci >= chunks.length) return;
@@ -214,7 +220,6 @@
     if (chunks.length === 1) return; // 至少保留一个段
     chunks.splice(ci, 1);
     state.fullContent = chunks.join('\f');
-    pushHistory();  // 记录删除之后的状态
 
     // 如果当前页超出总页数，后退
     var newSegs = getPageSegments();
@@ -227,22 +232,42 @@
   // 撤销 / 重做
   // ═════════════════════════════════════════════════════════════
 
-  function pushHistory() {
+  // ── 播种初始历史（仿 Word：打开文档时的状态作为 undo 基线）──
+  function seedInitialHistory() {
+    if (history.seeded) return;
+    // 确保 fullContent 与 textarea 初始值一致
+    if (!state.fullContent && textarea.value) {
+      state.fullContent = textarea.value;
+    }
+    history.stack = [{ content: state.fullContent, page: 1, cursor: 0 }];
+    history.index = 0;
+    history.lastPush = Date.now();
+    history.seeded = true;
+    updateUndoButtons();
+  }
+
+  function pushHistory(force) {
+    // 如果还没播种，先播种（不 return，继续推入当前状态）
+    if (!history.seeded) { seedInitialHistory(); }
+
     var now = Date.now();
-    var entry = { content: state.fullContent, page: state.currentPage };
-    // 仅在「栈顶 + 1 秒内」合并；undo 后再输入则截断重做栈
-    var atTip = history.index === history.stack.length - 1;
-    if (atTip && history.index >= 0 && now - history.lastPush < 1000) {
+    // 记录当前光标在全文中的位置
+    var segs = getPageSegments();
+    var seg = segs[state.currentPage - 1];
+    var cursorInFull = seg ? seg.start + textarea.selectionStart : 0;
+    var entry = { content: state.fullContent, page: state.currentPage, cursor: cursorInFull };
+
+    // 1 秒内的连续输入合并（但永不合并到初始条目 index 0）
+    if (history.index > 0 && now - history.lastPush < 1000) {
       history.stack[history.index] = entry;
     } else {
-      // 丢弃"未来"重做栈，建立新分支
+      // 丢弃"未来"重做栈
       history.stack = history.stack.slice(0, history.index + 1);
       history.stack.push(entry);
       if (history.stack.length > history.maxSize) history.stack.shift();
       else history.index++;
     }
     history.lastPush = now;
-    updateUndoButtons();
   }
 
   function undo() {
@@ -259,11 +284,20 @@
 
   function restoreHistory() {
     var entry = history.stack[history.index];
+    if (!entry) return;
     state.fullContent = entry.content;
     // 钳制页码
     var segs = getPageSegments();
-    state.currentPage = Math.min(entry.page, Math.max(1, segs.length));
+    state.currentPage = Math.min(entry.page || 1, Math.max(1, segs.length));
     renderPage();
+    // 恢复光标位置
+    var seg = getPageSegments()[state.currentPage - 1];
+    if (seg && typeof entry.cursor === 'number') {
+      var posInPage = entry.cursor - seg.start;
+      if (posInPage < 0) posInPage = 0;
+      if (posInPage > textarea.value.length) posInPage = textarea.value.length;
+      textarea.setSelectionRange(posInPage, posInPage);
+    }
     autoSave();
     updateUndoButtons();
   }
@@ -529,8 +563,8 @@
   // ── 键盘快捷键 ────────────────────────────────────────────────
 
   function onKeydown(e) {
-    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); e.stopPropagation(); undo(); return; }
-    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); e.stopPropagation(); redo(); return; }
+    if ((e.ctrlKey || e.metaKey) && e.key === 'z' && !e.shiftKey) { e.preventDefault(); undo(); return; }
+    if ((e.ctrlKey || e.metaKey) && (e.key === 'y' || (e.key === 'z' && e.shiftKey))) { e.preventDefault(); redo(); return; }
     if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') { e.preventDefault(); insertPageBreak(); }
     if (e.key === 'Escape') {
       if (state.refOpen && state.refView === 'detail') {
@@ -557,28 +591,28 @@
     setPaperSize(state.paperSize);
     applyTransform();
 
-    // 先测尺寸再渲染首页，播种初始历史
+    // 先测尺寸再渲染首页
     setTimeout(function () {
       computeCharsPerPage();
       renderPage();
-      history.stack = [{ content: state.fullContent, page: state.currentPage }];
-      history.index = 0;
-      history.lastPush = 0; // 远古时间，防止首次输入被合并
-      updateUndoButtons();
+      // 播种初始历史 — 打开文档时的状态作为 undo 基线
+      seedInitialHistory();
     }, 100);
 
     // 输入 → 合并 + 自动保存
     textarea.addEventListener('input', function () {
       if (state.renderingPage) return;
       state.dirty = true;
+      pushHistory();
       var oldTotal = state.totalPages;
       mergePageContent();
       updateStats();
-      pushHistory();  // 记录编辑后状态（必须在 merge 之后）
       // 内容超出当前页 → 先截断再自动翻页（带动画）
       if (state.totalPages > oldTotal && textarea.value.length > state.charsPerPage) {
         renderPage();  // textarea 截取到当前页边界
-        flipPage(1);   // 翻到下一页
+        _autoPaging = true;
+        flipPage(1);   // 翻到下一页（跳过 mergePageContent，保护全文）
+        _autoPaging = false;
       }
       autoSave();
       var indicator = $('save-indicator');
@@ -586,12 +620,6 @@
     });
 
     textarea.addEventListener('keydown', onKeydown);
-    // 阻止浏览器原生 undo/redo，只用我们自己的历史栈
-    textarea.addEventListener('beforeinput', function (e) {
-      if (e.inputType === 'historyUndo' || e.inputType === 'historyRedo') {
-        e.preventDefault();
-      }
-    });
     // 文档级 Ctrl+S：确保焦点不在 textarea 时也能保存（main.js 已阻止浏览器另存为）
     document.addEventListener('keydown', function (e) {
       if ((e.ctrlKey || e.metaKey) && e.key === 's') {
