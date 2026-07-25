@@ -391,15 +391,6 @@
     });
   }
 
-  // ── HTML 转义 ─────────────────────────────────────────────────────
-
-  function esc(s) {
-    if (!s) return '';
-    var d = document.createElement('div');
-    d.textContent = s;
-    return d.innerHTML;
-  }
-
   function formatBytes(b) {
     if (b < 1024) return b + ' B';
     if (b < 1048576) return (b / 1024).toFixed(1) + ' KB';

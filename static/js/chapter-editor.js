@@ -223,7 +223,6 @@
       // 分页位置，造成内容重复/字数膨胀。
       return;
     }
-    if (!seg) return;
     var edited = textarea.value;
     var fc = state.fullContent;
     state.fullContent = fc.substring(0, seg.start) + edited + fc.substring(seg.end);
@@ -856,13 +855,6 @@
         renderRefList(state.refTab, state.refData[state.refTab]);
       } else if (state.refOpen) { toggleRef(); }
     }
-  }
-
-  // ── HTML 转义 ─────────────────────────────────────────────────
-
-  function esc(s) {
-    if (!s) return '';
-    var d = document.createElement('div'); d.textContent = s; return d.innerHTML;
   }
 
   // ═════════════════════════════════════════════════════════════

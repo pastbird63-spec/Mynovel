@@ -1,9 +1,11 @@
 import os
 import uuid
 from io import BytesIO
-from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
+from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app, abort
+from flask_login import login_required, current_user
 from models import db, Character, CharacterField, CharacterImage, Book, Relationship, PlotCharacter
 from PIL import Image
+from sqlalchemy import or_
 
 characters_bp = Blueprint('characters', __name__, url_prefix='/characters')
 ALLOWED_EXTENSIONS = {'png', 'jpg', 'jpeg', 'gif', 'webp'}
@@ -47,23 +49,40 @@ def get_book_id():
         return None
 
 
+def _verify_character_owner(character):
+    """如果角色不属于当前用户，抛 403"""
+    if character.user_id != current_user.id:
+        if not character.book_id or character.book.user_id != current_user.id:
+            abort(403)
+
+
 @characters_bp.route('/')
+@login_required
 def index():
     book_id = request.args.get('book_id', type=int)
-    books = Book.query.order_by(Book.title).all()
+    books = Book.query.filter_by(user_id=current_user.id).order_by(Book.title).all()
+    user_book_ids = [b.id for b in books]
     if book_id:
+        if book_id not in user_book_ids:
+            abort(403)
         characters = Character.query.filter_by(book_id=book_id).order_by(Character.created_at.desc()).all()
         current_book = Book.query.get(book_id)
     else:
-        characters = Character.query.order_by(Character.created_at.desc()).all()
+        if user_book_ids:
+            characters = Character.query.filter(
+                or_(Character.user_id == current_user.id, Character.book_id.in_(user_book_ids))
+            ).order_by(Character.created_at.desc()).all()
+        else:
+            characters = Character.query.filter_by(user_id=current_user.id).order_by(Character.created_at.desc()).all()
         current_book = None
     return render_template('characters/index.html',
                            characters=characters, books=books, current_book=current_book)
 
 
 @characters_bp.route('/create', methods=['GET', 'POST'])
+@login_required
 def create():
-    books = Book.query.all()
+    books = Book.query.filter_by(user_id=current_user.id).all()
     preselected_book_id = request.args.get('book_id', type=int)
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
@@ -76,7 +95,8 @@ def create():
             age=request.form.get('age', ''),
             gender=request.form.get('gender', ''),
             description=request.form.get('description', ''),
-            book_id=get_book_id()
+            book_id=get_book_id(),
+            user_id=current_user.id
         )
         db.session.add(character)
         db.session.flush()
@@ -103,15 +123,19 @@ def create():
 
 
 @characters_bp.route('/<int:id>')
+@login_required
 def detail(id):
     character = Character.query.get_or_404(id)
+    _verify_character_owner(character)
     return render_template('characters/detail.html', character=character)
 
 
 @characters_bp.route('/<int:id>/edit', methods=['GET', 'POST'])
+@login_required
 def edit(id):
     character = Character.query.get_or_404(id)
-    books = Book.query.all()
+    _verify_character_owner(character)
+    books = Book.query.filter_by(user_id=current_user.id).all()
     if request.method == 'POST':
         name = request.form.get('name', '').strip()
         if not name:
@@ -143,8 +167,10 @@ def edit(id):
 
 
 @characters_bp.route('/<int:id>/delete', methods=['POST'])
+@login_required
 def delete(id):
     character = Character.query.get_or_404(id)
+    _verify_character_owner(character)
     for image in character.images:
         fp = os.path.join(current_app.config['UPLOAD_FOLDER'], image.filename)
         if os.path.exists(fp):
@@ -162,8 +188,12 @@ def delete(id):
 
 
 @characters_bp.route('/image/<int:image_id>/delete', methods=['POST'])
+@login_required
 def delete_image(image_id):
     image = CharacterImage.query.get_or_404(image_id)
+    character = Character.query.get(image.character_id)
+    if character:
+        _verify_character_owner(character)
     character_id = image.character_id
     fp = os.path.join(current_app.config['UPLOAD_FOLDER'], image.filename)
     try:
@@ -174,6 +204,6 @@ def delete_image(image_id):
         flash('图片文件清理异常，记录已删除', 'warning')
     db.session.delete(image)
     db.session.commit()
-    
+
     flash('图片已删除', 'success')
     return redirect(url_for('characters.edit', id=character_id))

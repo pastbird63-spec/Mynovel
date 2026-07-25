@@ -13,7 +13,7 @@
     <div class="row g-2">
       {% for image in character.images %}
       <div class="col-4">
-        <img src="{{ url_for('static', filename='uploads/' + image.filename) }}" class="img-fluid rounded" style="height:150px;object-fit:cover;width:100%;">
+        <img src="{{ url_for('uploaded_file', filename=image.filename) }}" class="img-fluid rounded" style="height:150px;object-fit:cover;width:100%;">
         <form method="POST" action="{{ url_for('characters.delete_image', image_id=image.id) }}" class="mt-1" onsubmit="return confirm('删除这张图片？')">
             {{ csrf_token() }}
           <button type="submit" class="btn btn-sm btn-outline-danger w-100">删除</button>

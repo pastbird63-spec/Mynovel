@@ -123,15 +123,6 @@ function renderContent() {
   }
 }
 
-// ── HTML 转义 ──
-
-function esc(s) {
-  if (!s) return '';
-  var d = document.createElement('div');
-  d.textContent = s;
-  return d.innerHTML;
-}
-
 // ── 工具 ──
 
 function ce(tag, cls, txt) {

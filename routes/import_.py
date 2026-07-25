@@ -2,7 +2,8 @@
 
 import io
 import os
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, abort
+from flask_login import login_required, current_user
 from models import db, Book, Chapter
 from docx_utils import parse_docx, parse_txt, parse_epub
 
@@ -70,9 +71,12 @@ def _read_text_file(file_storage):
 # ═════════════════════════════════════════════════════════════════
 
 @import_bp.route('/<int:book_id>/txt', methods=['POST'])
+@login_required
 def import_txt(book_id):
     """上传一个或多个 TXT 文件，创建章节"""
-    Book.query.get_or_404(book_id)
+    book = Book.query.get_or_404(book_id)
+    if book.user_id != current_user.id:
+        abort(403)
 
     files = request.files.getlist('files')
     if not files or all(not f.filename for f in files):
@@ -125,9 +129,12 @@ def import_txt(book_id):
 # ═════════════════════════════════════════════════════════════════
 
 @import_bp.route('/<int:book_id>/docx', methods=['POST'])
+@login_required
 def import_docx(book_id):
     """上传一个或多个 DOCX 文件，创建章节"""
-    Book.query.get_or_404(book_id)
+    book = Book.query.get_or_404(book_id)
+    if book.user_id != current_user.id:
+        abort(403)
 
     files = request.files.getlist('files')
     if not files or all(not f.filename for f in files):
@@ -192,9 +199,12 @@ def import_docx(book_id):
 # ═════════════════════════════════════════════════════════════════
 
 @import_bp.route('/<int:book_id>/epub', methods=['POST'])
+@login_required
 def import_epub(book_id):
     """上传一个或多个 EPUB 文件到已有书中，按章节导入"""
-    Book.query.get_or_404(book_id)
+    book = Book.query.get_or_404(book_id)
+    if book.user_id != current_user.id:
+        abort(403)
 
     files = request.files.getlist('files')
     if not files or all(not f.filename for f in files):
@@ -258,6 +268,7 @@ def import_epub(book_id):
 # ── 书架页一键导入 EPUB（创建书 + 导入章节）────────────────
 
 @import_bp.route('/api/books/import-epub', methods=['POST'])
+@login_required
 def import_epub_quick():
     """书架页一键导入：根据 EPUB 文件创建阅读类书籍并导入章节"""
     file = request.files.get('file')
@@ -289,6 +300,7 @@ def import_epub_quick():
     book = Book(
         title=book_title,
         type='reading',
+        user_id=current_user.id,
     )
     db.session.add(book)
     db.session.flush()

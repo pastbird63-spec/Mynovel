@@ -1,4 +1,5 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, abort
+from flask_login import login_required, current_user
 from models import db, Book, WorldSetting, WorldSettingField, WORLD_SETTING_CATEGORIES
 from datetime import datetime
 
@@ -6,12 +7,13 @@ world_bp = Blueprint('world', __name__, url_prefix='/world')
 
 
 @world_bp.route('/')
+@login_required
 def index():
     category = request.args.get('category', '')
     book_id = request.args.get('book_id', type=int)
-    books = Book.query.order_by(Book.title).all()
+    books = Book.query.filter_by(user_id=current_user.id).order_by(Book.title).all()
 
-    query = WorldSetting.query
+    query = WorldSetting.query.filter_by(user_id=current_user.id)
     if category and category in WORLD_SETTING_CATEGORIES:
         query = query.filter_by(category=category)
     if book_id:
@@ -33,8 +35,9 @@ def index():
 
 
 @world_bp.route('/create', methods=['GET', 'POST'])
+@login_required
 def create():
-    books = Book.query.order_by(Book.title).all()
+    books = Book.query.filter_by(user_id=current_user.id).order_by(Book.title).all()
     preselected_book_id = request.args.get('book_id', type=int)
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
@@ -50,7 +53,8 @@ def create():
             book_id=book_id,
             title=title,
             category=category,
-            content=request.form.get('content', '').strip()
+            content=request.form.get('content', '').strip(),
+            user_id=current_user.id
         )
         db.session.add(setting)
         db.session.flush()
@@ -68,15 +72,21 @@ def create():
 
 
 @world_bp.route('/setting/<int:setting_id>')
+@login_required
 def detail(setting_id):
     setting = WorldSetting.query.get_or_404(setting_id)
+    if setting.user_id != current_user.id:
+        abort(403)
     return render_template('world/detail.html', setting=setting)
 
 
 @world_bp.route('/setting/<int:setting_id>/edit', methods=['GET', 'POST'])
+@login_required
 def edit(setting_id):
     setting = WorldSetting.query.get_or_404(setting_id)
-    books = Book.query.order_by(Book.title).all()
+    if setting.user_id != current_user.id:
+        abort(403)
+    books = Book.query.filter_by(user_id=current_user.id).order_by(Book.title).all()
     if request.method == 'POST':
         title = request.form.get('title', '').strip()
         if not title:
@@ -106,8 +116,11 @@ def edit(setting_id):
 
 
 @world_bp.route('/setting/<int:setting_id>/delete', methods=['POST'])
+@login_required
 def delete(setting_id):
     setting = WorldSetting.query.get_or_404(setting_id)
+    if setting.user_id != current_user.id:
+        abort(403)
     title = setting.title
     db.session.delete(setting)
     db.session.commit()

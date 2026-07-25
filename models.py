@@ -1,10 +1,34 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from flask_login import UserMixin
+from werkzeug.security import generate_password_hash, check_password_hash
 
 db = SQLAlchemy()
 
 
+class User(UserMixin, db.Model):
+    __tablename__ = 'users'
+    id = db.Column(db.Integer, primary_key=True)
+    username = db.Column(db.String(80), unique=True, nullable=False)
+    password_hash = db.Column(db.String(256), nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+    books = db.relationship('Book', backref='user', lazy=True)
+    characters = db.relationship('Character', backref='user', lazy=True)
+    world_settings = db.relationship('WorldSetting', backref='user', lazy=True)
+
+    def set_password(self, password):
+        self.password_hash = generate_password_hash(password)
+
+    def check_password(self, password):
+        return check_password_hash(self.password_hash, password)
+
+
 class Book(db.Model):
+    __tablename__ = 'books'
+    id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
+    title = db.Column(db.String(200), nullable=False)
     __tablename__ = 'books'
     id = db.Column(db.Integer, primary_key=True)
     title = db.Column(db.String(200), nullable=False)
@@ -23,6 +47,7 @@ class Book(db.Model):
 class Character(db.Model):
     __tablename__ = 'characters'
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     book_id = db.Column(db.Integer, db.ForeignKey('books.id', ondelete='SET NULL'), nullable=True, index=True)
     name = db.Column(db.String(100), nullable=False)
     alias = db.Column(db.String(200))
@@ -112,6 +137,7 @@ WORLD_SETTING_CATEGORIES = ['地理', '规则', '历史', '其他']
 class WorldSetting(db.Model):
     __tablename__ = 'world_settings'
     id = db.Column(db.Integer, primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey('users.id'), nullable=True, index=True)
     book_id = db.Column(db.Integer, db.ForeignKey('books.id', ondelete='CASCADE'), nullable=True, index=True)
     category = db.Column(db.String(20), nullable=False, default='其他', index=True)
     title = db.Column(db.String(200), nullable=False)

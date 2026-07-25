@@ -18,6 +18,7 @@
   <div class="d-flex gap-2">
     <a href="{{ url_for('characters.edit', id=character.id) }}" class="btn btn-outline-secondary">编辑</a>
     <form method="POST" action="{{ url_for('characters.delete', id=character.id) }}" onsubmit="return confirm('确定删除「{{ character.name }}」？此操作不可撤销。')" class="d-inline">
+      {{ csrf_token() }}
       <button type="submit" class="btn btn-outline-danger">删除</button>
     </form>
   </div>
@@ -29,7 +30,7 @@
     <div class="char-gallery">
       {% if character.images %}
         {% for image in character.images %}
-        <img src="{{ url_for('static', filename='uploads/' + image.filename) }}" alt="{{ character.name }}">
+        <img src="{{ url_for('uploaded_file', filename=image.filename) }}" alt="{{ character.name }}">
         {% endfor %}
       {% else %}
         <div class="char-gallery-placeholder">{{ character.name[0] }}</div>

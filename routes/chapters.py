@@ -1,7 +1,48 @@
 from flask import Blueprint, render_template, request, redirect, url_for, flash, jsonify, abort
+from flask_login import login_required, current_user
 from models import db, Book, Chapter, Character, CharacterField, CharacterImage, PlotNode, PlotField, PlotCharacter, WorldSetting, WorldSettingField, WORLD_SETTING_CATEGORIES
 
 chapters_bp = Blueprint('chapters', __name__)
+
+
+# ── 辅助函数 ──────────────────────────────────────────────────────────
+
+
+def _book_or_abort(book_id):
+    """取书并校验归属，不通过则 404"""
+    book = Book.query.get_or_404(book_id)
+    if book.user_id != current_user.id:
+        abort(404)
+    return book
+
+
+def _chapter_or_abort(id):
+    """取章节并校验归属，不通过则 404"""
+    chapter = Chapter.query.get_or_404(id)
+    if not chapter.book_id or chapter.book.user_id != current_user.id:
+        abort(404)
+    return chapter
+
+
+def _character_or_abort(id):
+    c = Character.query.get_or_404(id)
+    if c.book.user_id != current_user.id:
+        abort(404)
+    return c
+
+
+def _plot_node_or_abort(id):
+    n = PlotNode.query.get_or_404(id)
+    if n.book.user_id != current_user.id:
+        abort(404)
+    return n
+
+
+def _world_setting_or_abort(id):
+    s = WorldSetting.query.get_or_404(id)
+    if s.book.user_id != current_user.id:
+        abort(404)
+    return s
 
 
 # ═════════════════════════════════════════════════════════════════════
@@ -9,16 +50,18 @@ chapters_bp = Blueprint('chapters', __name__)
 # ═════════════════════════════════════════════════════════════════════
 
 @chapters_bp.route('/books/<int:book_id>/chapters')
+@login_required
 def list_page(book_id):
     """章节列表页"""
-    book = Book.query.get_or_404(book_id)
+    book = _book_or_abort(book_id)
     return render_template('chapters/list.html', book=book)
 
 
 @chapters_bp.route('/chapters/<int:id>/write')
+@login_required
 def write_page(id):
     """稿纸编辑器页"""
-    chapter = Chapter.query.get_or_404(id)
+    chapter = _chapter_or_abort(id)
     book = Book.query.get(chapter.book_id) if chapter.book_id else None
     return render_template('chapters/write.html', chapter=chapter, book=book)
 
@@ -28,9 +71,10 @@ def write_page(id):
 # ═════════════════════════════════════════════════════════════════════
 
 @chapters_bp.route('/api/books/<int:book_id>/chapters')
+@login_required
 def api_list(book_id):
     """获取书的章节列表 JSON"""
-    book = Book.query.get_or_404(book_id)
+    book = _book_or_abort(book_id)
     chapters = Chapter.query.filter_by(book_id=book_id)\
         .order_by(Chapter.order, Chapter.created_at).all()
     return jsonify([{
@@ -43,9 +87,10 @@ def api_list(book_id):
 
 
 @chapters_bp.route('/api/books/<int:book_id>/chapters', methods=['POST'])
+@login_required
 def api_create(book_id):
     """创建新章节"""
-    book = Book.query.get_or_404(book_id)
+    book = _book_or_abort(book_id)
     data = request.get_json(silent=True) or {}
     title = (data.get('title') or '').strip()
     if not title:
@@ -72,9 +117,10 @@ def api_create(book_id):
 
 
 @chapters_bp.route('/api/chapters/<int:id>')
+@login_required
 def api_get(id):
     """获取章节完整内容 JSON"""
-    chapter = Chapter.query.get_or_404(id)
+    chapter = _chapter_or_abort(id)
     return jsonify({
         'id': chapter.id,
         'book_id': chapter.book_id,
@@ -91,9 +137,10 @@ def api_get(id):
 
 
 @chapters_bp.route('/api/chapters/<int:id>/neighbors')
+@login_required
 def api_neighbors(id):
     """返回同一本书中当前章节的前后章节 ID"""
-    chapter = Chapter.query.get_or_404(id)
+    chapter = _chapter_or_abort(id)
     if not chapter.book_id:
         return jsonify({'prev': None, 'next': None})
     # 前一章：同书 order 小于当前的最大 order
@@ -113,9 +160,10 @@ def api_neighbors(id):
 
 
 @chapters_bp.route('/api/chapters/<int:id>', methods=['PUT'])
+@login_required
 def api_update(id):
     """保存章节内容（自动保存）"""
-    chapter = Chapter.query.get_or_404(id)
+    chapter = _chapter_or_abort(id)
     data = request.get_json(silent=True) or {}
 
     if 'title' in data:
@@ -137,18 +185,20 @@ def api_update(id):
 
 
 @chapters_bp.route('/api/chapters/<int:id>', methods=['DELETE'])
+@login_required
 def api_delete(id):
     """删除章节"""
-    chapter = Chapter.query.get_or_404(id)
+    chapter = _chapter_or_abort(id)
     db.session.delete(chapter)
     db.session.commit()
     return jsonify({'ok': True})
 
 
 @chapters_bp.route('/api/chapters/<int:id>/reorder', methods=['PUT'])
+@login_required
 def api_reorder(id):
     """更新章节排序"""
-    chapter = Chapter.query.get_or_404(id)
+    chapter = _chapter_or_abort(id)
     data = request.get_json(silent=True) or {}
     new_order = data.get('order')
     if new_order is None:
@@ -173,8 +223,10 @@ def api_reorder(id):
 # ═════════════════════════════════════════════════════════════════════
 
 @chapters_bp.route('/api/books/<int:book_id>/reference/characters')
+@login_required
 def api_reference_characters(book_id):
     """获取书的人物列表（只读，供参考书用）"""
+    book = _book_or_abort(book_id)
     characters = Character.query.filter_by(book_id=book_id)\
         .order_by(Character.name).all()
     return jsonify([{
@@ -188,8 +240,10 @@ def api_reference_characters(book_id):
 
 
 @chapters_bp.route('/api/books/<int:book_id>/reference/plots')
+@login_required
 def api_reference_plots(book_id):
     """获取书的情节节点列表（只读，供参考书用）"""
+    book = _book_or_abort(book_id)
     nodes = PlotNode.query.filter_by(book_id=book_id)\
         .order_by(PlotNode.order).all()
     return jsonify([{
@@ -203,8 +257,10 @@ def api_reference_plots(book_id):
 
 
 @chapters_bp.route('/api/books/<int:book_id>/reference/world')
+@login_required
 def api_reference_world(book_id):
     """获取书的世界观设定列表（只读，供参考书用）"""
+    book = _book_or_abort(book_id)
     settings = WorldSetting.query.filter_by(book_id=book_id)\
         .order_by(WorldSetting.category, WorldSetting.created_at).all()
     grouped = {}
@@ -222,9 +278,10 @@ def api_reference_world(book_id):
 # ── 参考书详情 API ────────────────────────────────────────────
 
 @chapters_bp.route('/api/reference/character/<int:id>')
+@login_required
 def api_reference_character_detail(id):
     """人物详情（含自定义字段和图片）"""
-    c = Character.query.get_or_404(id)
+    c = _character_or_abort(id)
     return jsonify({
         'id': c.id,
         'name': c.name,
@@ -241,9 +298,10 @@ def api_reference_character_detail(id):
 
 
 @chapters_bp.route('/api/reference/plot/<int:id>')
+@login_required
 def api_reference_plot_detail(id):
     """情节节点详情（含自定义字段和关联人物）"""
-    n = PlotNode.query.get_or_404(id)
+    n = _plot_node_or_abort(id)
     return jsonify({
         'id': n.id,
         'title': n.title,
@@ -266,9 +324,10 @@ def api_reference_plot_detail(id):
 
 
 @chapters_bp.route('/api/reference/world/<int:id>')
+@login_required
 def api_reference_world_detail(id):
     """世界观设定详情（含自定义字段）"""
-    s = WorldSetting.query.get_or_404(id)
+    s = _world_setting_or_abort(id)
     return jsonify({
         'id': s.id,
         'title': s.title,
@@ -286,8 +345,9 @@ def api_reference_world_detail(id):
 # ── 人物 ──────────────────────────────────────────────────────────
 
 @chapters_bp.route('/api/books/<int:book_id>/characters/quick', methods=['POST'])
+@login_required
 def api_quick_create_character(book_id):
-    Book.query.get_or_404(book_id)
+    book = _book_or_abort(book_id)
     data = request.get_json(silent=True) or {}
     name = (data.get('name') or '').strip()
     if not name:
@@ -313,8 +373,9 @@ def api_quick_create_character(book_id):
 
 
 @chapters_bp.route('/api/characters/<int:id>/quick', methods=['PUT'])
+@login_required
 def api_quick_update_character(id):
-    character = Character.query.get_or_404(id)
+    character = _character_or_abort(id)
     data = request.get_json(silent=True) or {}
     if 'name' in data:
         character.name = data['name'].strip()
@@ -333,8 +394,9 @@ def api_quick_update_character(id):
 # ── 情节 ──────────────────────────────────────────────────────────
 
 @chapters_bp.route('/api/books/<int:book_id>/plots/quick', methods=['POST'])
+@login_required
 def api_quick_create_plot(book_id):
-    Book.query.get_or_404(book_id)
+    book = _book_or_abort(book_id)
     data = request.get_json(silent=True) or {}
     title = (data.get('title') or '').strip()
     if not title:
@@ -364,8 +426,9 @@ def api_quick_create_plot(book_id):
 
 
 @chapters_bp.route('/api/plot-nodes/<int:id>/quick', methods=['PUT'])
+@login_required
 def api_quick_update_plot(id):
-    node = PlotNode.query.get_or_404(id)
+    node = _plot_node_or_abort(id)
     data = request.get_json(silent=True) or {}
     if 'title' in data:
         node.title = data['title'].strip()
@@ -382,8 +445,9 @@ def api_quick_update_plot(id):
 # ── 世界观 ────────────────────────────────────────────────────────
 
 @chapters_bp.route('/api/books/<int:book_id>/world/quick', methods=['POST'])
+@login_required
 def api_quick_create_world(book_id):
-    Book.query.get_or_404(book_id)
+    book = _book_or_abort(book_id)
     data = request.get_json(silent=True) or {}
     title = (data.get('title') or '').strip()
     if not title:
@@ -410,8 +474,9 @@ def api_quick_create_world(book_id):
 
 
 @chapters_bp.route('/api/world-settings/<int:id>/quick', methods=['PUT'])
+@login_required
 def api_quick_update_world(id):
-    setting = WorldSetting.query.get_or_404(id)
+    setting = _world_setting_or_abort(id)
     data = request.get_json(silent=True) or {}
     if 'title' in data:
         setting.title = data['title'].strip()

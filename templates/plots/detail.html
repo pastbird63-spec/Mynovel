@@ -19,6 +19,7 @@
     <a href="{{ url_for('plots.edit', node_id=node.id) }}" class="btn btn-outline-primary">编辑</a>
     <form method="POST" action="{{ url_for('plots.delete', node_id=node.id) }}"
           onsubmit="return confirm('删除节点「{{ node.title }}」？')">
+      {{ csrf_token() }}
       <button type="submit" class="btn btn-outline-danger">删除</button>
     </form>
   </div>
@@ -78,7 +79,7 @@
            class="d-flex align-items-center text-decoration-none mb-2 p-2 rounded"
            style="background: var(--bg); color: var(--text);">
           {% if pc.character.images %}
-            <img src="{{ url_for('static', filename='uploads/' + pc.character.images[0].filename) }}"
+            <img src="{{ url_for('uploaded_file', filename=pc.character.images[0].filename) }}"
                  class="rounded-circle me-2"
                  style="width: 36px; height: 36px; object-fit: cover;">
           {% else %}
