@@ -1,7 +1,8 @@
 import os
 import uuid
+from io import BytesIO
 from flask import Blueprint, render_template, request, redirect, url_for, flash, current_app
-from models import db, Character, CharacterField, CharacterImage, Book
+from models import db, Character, CharacterField, CharacterImage, Book, Relationship, PlotCharacter
 from PIL import Image
 
 characters_bp = Blueprint('characters', __name__, url_prefix='/characters')
@@ -13,6 +14,17 @@ def allowed_file(filename):
         return False
     ext = filename.rsplit('.', 1)[1].lower()
     return ext in ALLOWED_EXTENSIONS
+
+
+def is_valid_image(file_storage):
+    """Verify file content is actually an image, not just named like one."""
+    try:
+        img = Image.open(file_storage)
+        img.verify()
+        file_storage.seek(0)
+        return True
+    except Exception:
+        return False
 
 
 def save_image(file, character_id):
@@ -78,6 +90,9 @@ def create():
                 ))
         for file in request.files.getlist('images'):
             if file and file.filename and allowed_file(file.filename):
+                if not is_valid_image(file):
+                    flash(f'文件「{file.filename}」不是有效图片，已跳过', 'warning')
+                    continue
                 fn = save_image(file, character.id)
                 db.session.add(CharacterImage(character_id=character.id, filename=fn))
         db.session.commit()
@@ -134,6 +149,11 @@ def delete(id):
         fp = os.path.join(current_app.config['UPLOAD_FOLDER'], image.filename)
         if os.path.exists(fp):
             os.remove(fp)
+    # Clean up associations
+    Relationship.query.filter(
+        (Relationship.character_a_id == id) | (Relationship.character_b_id == id)
+    ).delete()
+    PlotCharacter.query.filter_by(character_id=id).delete()
     db.session.delete(character)
     db.session.commit()
     book_id = character.book_id

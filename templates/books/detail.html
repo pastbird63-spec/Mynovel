@@ -16,6 +16,7 @@
 
   <form method="POST" action="{{ url_for('books.delete', id=book.id) }}"
         onsubmit="return confirm('删除「{{ book.title }}」？人物不会被删除，但会变为未分类。')" class="d-inline">
+    {{ csrf_token() }}
     <button type="submit" class="btn btn-sm btn-outline-danger">删除书目</button>
   </form>
 </div>

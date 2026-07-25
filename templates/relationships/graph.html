@@ -30,6 +30,7 @@
   <div class="card-header">添加关系</div>
   <div class="card-body">
     <form method="POST" action="{{ url_for('relationships.add', book_id=book.id) }}">
+      {{ csrf_token() }}
       <div class="row g-2 align-items-end">
         <div class="col-md-3">
           <label class="form-label small">人物 A</label>
@@ -95,6 +96,7 @@
           <td>
             <form method="POST" action="{{ url_for('relationships.delete', rel_id=rel.id) }}"
                   onsubmit="return confirm('删除这条关系？')">
+                {{ csrf_token() }}
               <button type="submit" class="btn btn-sm btn-outline-danger">删除</button>
             </form>
           </td>

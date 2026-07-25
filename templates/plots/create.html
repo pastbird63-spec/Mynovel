@@ -4,6 +4,7 @@
 <div class="row justify-content-center"><div class="col-md-8">
 <h2 class="mb-4">新建情节节点</h2>
 <form method="POST" id="plot-form">
+  {{ csrf_token() }}
   <div class="card mb-3"><div class="card-header">基本信息</div><div class="card-body">
     <div class="mb-3"><label class="form-label">节点标题 <span class="text-danger">*</span></label><input type="text" name="title" class="form-control" required placeholder="如：初入皇城、决战前夜……"></div>
     <div class="row">

@@ -23,7 +23,7 @@ class Book(db.Model):
 class Character(db.Model):
     __tablename__ = 'characters'
     id = db.Column(db.Integer, primary_key=True)
-    book_id = db.Column(db.Integer, db.ForeignKey('books.id'), nullable=True)
+    book_id = db.Column(db.Integer, db.ForeignKey('books.id', ondelete='SET NULL'), nullable=True, index=True)
     name = db.Column(db.String(100), nullable=False)
     alias = db.Column(db.String(200))
     age = db.Column(db.String(50))
@@ -40,7 +40,7 @@ class Character(db.Model):
 class CharacterField(db.Model):
     __tablename__ = 'character_fields'
     id = db.Column(db.Integer, primary_key=True)
-    character_id = db.Column(db.Integer, db.ForeignKey('characters.id'), nullable=False)
+    character_id = db.Column(db.Integer, db.ForeignKey('characters.id', ondelete='CASCADE'), nullable=False, index=True)
     field_name = db.Column(db.String(100), nullable=False)
     field_value = db.Column(db.Text)
 
@@ -48,7 +48,7 @@ class CharacterField(db.Model):
 class CharacterImage(db.Model):
     __tablename__ = 'character_images'
     id = db.Column(db.Integer, primary_key=True)
-    character_id = db.Column(db.Integer, db.ForeignKey('characters.id'), nullable=False)
+    character_id = db.Column(db.Integer, db.ForeignKey('characters.id', ondelete='CASCADE'), nullable=False, index=True)
     filename = db.Column(db.String(255), nullable=False)
     caption = db.Column(db.String(200))
 
@@ -56,9 +56,9 @@ class CharacterImage(db.Model):
 class Relationship(db.Model):
     __tablename__ = 'relationships'
     id = db.Column(db.Integer, primary_key=True)
-    book_id = db.Column(db.Integer, db.ForeignKey('books.id'), nullable=True)
-    character_a_id = db.Column(db.Integer, db.ForeignKey('characters.id'), nullable=False)
-    character_b_id = db.Column(db.Integer, db.ForeignKey('characters.id'), nullable=False)
+    book_id = db.Column(db.Integer, db.ForeignKey('books.id', ondelete='CASCADE'), nullable=True, index=True)
+    character_a_id = db.Column(db.Integer, db.ForeignKey('characters.id', ondelete='CASCADE'), nullable=False, index=True)
+    character_b_id = db.Column(db.Integer, db.ForeignKey('characters.id', ondelete='CASCADE'), nullable=False, index=True)
     relation_type = db.Column(db.String(100))
     description = db.Column(db.Text)
 
@@ -69,8 +69,8 @@ class Relationship(db.Model):
 class PlotNode(db.Model):
     __tablename__ = 'plot_nodes'
     id = db.Column(db.Integer, primary_key=True)
-    book_id = db.Column(db.Integer, db.ForeignKey('books.id'), nullable=True)
-    parent_id = db.Column(db.Integer, db.ForeignKey('plot_nodes.id'), nullable=True)
+    book_id = db.Column(db.Integer, db.ForeignKey('books.id', ondelete='CASCADE'), nullable=True, index=True)
+    parent_id = db.Column(db.Integer, db.ForeignKey('plot_nodes.id', ondelete='SET NULL'), nullable=True, index=True)
     title = db.Column(db.String(200), nullable=False)
     order = db.Column(db.Integer, default=0)
     time_in_story = db.Column(db.String(200))
@@ -88,7 +88,7 @@ class PlotNode(db.Model):
 class PlotField(db.Model):
     __tablename__ = 'plot_fields'
     id = db.Column(db.Integer, primary_key=True)
-    plot_node_id = db.Column(db.Integer, db.ForeignKey('plot_nodes.id'), nullable=False)
+    plot_node_id = db.Column(db.Integer, db.ForeignKey('plot_nodes.id', ondelete='CASCADE'), nullable=False, index=True)
     field_name = db.Column(db.String(100), nullable=False)
     field_value = db.Column(db.Text)
     is_flagged = db.Column(db.Boolean, default=False)
@@ -98,8 +98,8 @@ class PlotField(db.Model):
 class PlotCharacter(db.Model):
     __tablename__ = 'plot_characters'
     id = db.Column(db.Integer, primary_key=True)
-    plot_node_id = db.Column(db.Integer, db.ForeignKey('plot_nodes.id'), nullable=False)
-    character_id = db.Column(db.Integer, db.ForeignKey('characters.id'), nullable=False)
+    plot_node_id = db.Column(db.Integer, db.ForeignKey('plot_nodes.id', ondelete='CASCADE'), nullable=False, index=True)
+    character_id = db.Column(db.Integer, db.ForeignKey('characters.id', ondelete='CASCADE'), nullable=False, index=True)
     role_in_plot = db.Column(db.String(100))
     character = db.relationship('Character')
 
@@ -112,8 +112,8 @@ WORLD_SETTING_CATEGORIES = ['地理', '规则', '历史', '其他']
 class WorldSetting(db.Model):
     __tablename__ = 'world_settings'
     id = db.Column(db.Integer, primary_key=True)
-    book_id = db.Column(db.Integer, db.ForeignKey('books.id'), nullable=True)
-    category = db.Column(db.String(20), nullable=False, default='其他')
+    book_id = db.Column(db.Integer, db.ForeignKey('books.id', ondelete='CASCADE'), nullable=True, index=True)
+    category = db.Column(db.String(20), nullable=False, default='其他', index=True)
     title = db.Column(db.String(200), nullable=False)
     content = db.Column(db.Text)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
@@ -124,7 +124,7 @@ class WorldSetting(db.Model):
 class WorldSettingField(db.Model):
     __tablename__ = 'world_setting_fields'
     id = db.Column(db.Integer, primary_key=True)
-    setting_id = db.Column(db.Integer, db.ForeignKey('world_settings.id'), nullable=False)
+    setting_id = db.Column(db.Integer, db.ForeignKey('world_settings.id', ondelete='CASCADE'), nullable=False, index=True)
     field_name = db.Column(db.String(100), nullable=False)
     field_value = db.Column(db.Text)
 
@@ -132,7 +132,7 @@ class WorldSettingField(db.Model):
 class Chapter(db.Model):
     __tablename__ = 'chapters'
     id = db.Column(db.Integer, primary_key=True)
-    book_id = db.Column(db.Integer, db.ForeignKey('books.id'), nullable=True)
+    book_id = db.Column(db.Integer, db.ForeignKey('books.id', ondelete='CASCADE'), nullable=True, index=True)
     title = db.Column(db.String(200), nullable=False)
     content = db.Column(db.Text, default='')
     order = db.Column(db.Integer, default=0)

@@ -4,6 +4,7 @@
 <div class="row justify-content-center"><div class="col-md-7">
 <h2 class="mb-4">新增世界观设定</h2>
 <form method="POST">
+  {{ csrf_token() }}
   <div class="card mb-3"><div class="card-body">
     <div class="mb-3"><label class="form-label">标题 <span class="text-danger">*</span></label><input type="text" name="title" class="form-control" required placeholder="如：龙族语言体系、魔法禁忌…"></div>
     <div class="row"><div class="col-md-6 mb-3"><label class="form-label">分类</label><select name="category" class="form-select">{% for cat in categories %}<option value="{{ cat }}">{{ cat }}</option>{% endfor %}</select></div><div class="col-md-6 mb-3"><label class="form-label">关联书目</label><select name="book_id" class="form-select"><option value="">通用</option>{% for book in books %}<option value="{{ book.id }}" {% if preselected_book_id==book.id %}selected{% endif %}>{{ book.title }}</option>{% endfor %}</select></div></div>

@@ -10,6 +10,7 @@
 {% set label_part = ts[pipe+1:].strip() if pipe >= 0 else '' %}
 {% if not date_part or date_part|length < 4 %}{% set date_part = '' %}{% set label_part = ts %}{% endif %}
 <form method="POST">
+  {{ csrf_token() }}
   <div class="card mb-3"><div class="card-header">基本信息</div><div class="card-body">
     <div class="mb-3"><label class="form-label">节点标题 <span class="text-danger">*</span></label><input type="text" name="title" class="form-control" value="{{ node.title }}" required></div>
     <div class="row">
