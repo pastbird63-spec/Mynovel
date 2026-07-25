@@ -1,12 +1,14 @@
-from flask import Blueprint, render_template, request, redirect, url_for, flash
+from flask import Blueprint, render_template, request, redirect, url_for, flash, abort
+from flask_login import login_required, current_user
 from models import db, PlotNode, PlotField, PlotCharacter, Character, Book
 
 plots_bp = Blueprint('plots', __name__, url_prefix='/plots')
 
 
 @plots_bp.route('/<int:book_id>')
+@login_required
 def index(book_id):
-    book = Book.query.get_or_404(book_id)
+    book = Book.query.filter_by(id=book_id, user_id=current_user.id).first_or_404()
     nodes = PlotNode.query.filter_by(book_id=book_id).order_by(PlotNode.order).all()
     # 收集所有有标记的词条，用于顶部提醒
     flagged = PlotField.query.filter_by(is_flagged=True).join(
@@ -16,8 +18,9 @@ def index(book_id):
 
 
 @plots_bp.route('/<int:book_id>/create', methods=['GET', 'POST'])
+@login_required
 def create(book_id):
-    book = Book.query.get_or_404(book_id)
+    book = Book.query.filter_by(id=book_id, user_id=current_user.id).first_or_404()
     characters = Character.query.filter_by(book_id=book_id).all()
     parent_nodes = PlotNode.query.filter_by(book_id=book_id).order_by(PlotNode.order).all()
 
@@ -83,14 +86,20 @@ def create(book_id):
 
 
 @plots_bp.route('/node/<int:node_id>')
+@login_required
 def detail(node_id):
     node = PlotNode.query.get_or_404(node_id)
+    if node.book.user_id != current_user.id:
+        abort(403)
     return render_template('plots/detail.html', node=node)
 
 
 @plots_bp.route('/node/<int:node_id>/edit', methods=['GET', 'POST'])
+@login_required
 def edit(node_id):
     node = PlotNode.query.get_or_404(node_id)
+    if node.book.user_id != current_user.id:
+        abort(403)
     characters = Character.query.filter_by(book_id=node.book_id).all()
     parent_nodes = PlotNode.query.filter_by(book_id=node.book_id).filter(PlotNode.id != node_id).order_by(PlotNode.order).all()
     linked_char_ids = [pc.character_id for pc in node.plot_characters]
@@ -134,8 +143,11 @@ def edit(node_id):
 
 
 @plots_bp.route('/node/<int:node_id>/reparent', methods=['POST'])
+@login_required
 def reparent(node_id):
     node = PlotNode.query.get_or_404(node_id)
+    if node.book.user_id != current_user.id:
+        abort(403)
     parent_id = request.form.get('parent_id', type=int)
     node.parent_id = parent_id
     db.session.commit()
@@ -143,16 +155,22 @@ def reparent(node_id):
 
 
 @plots_bp.route('/node/<int:node_id>/unparent', methods=['POST'])
+@login_required
 def unparent(node_id):
     node = PlotNode.query.get_or_404(node_id)
+    if node.book.user_id != current_user.id:
+        abort(403)
     node.parent_id = None
     db.session.commit()
     return ('', 204)
 
 
 @plots_bp.route('/node/<int:node_id>/reorder', methods=['POST'])
+@login_required
 def reorder(node_id):
     node = PlotNode.query.get_or_404(node_id)
+    if node.book.user_id != current_user.id:
+        abort(403)
     new_order = request.form.get('order', type=int)
     if new_order is not None:
         node.order = new_order
@@ -161,8 +179,11 @@ def reorder(node_id):
 
 
 @plots_bp.route('/node/<int:node_id>/update-field', methods=['POST'])
+@login_required
 def update_field(node_id):
     node = PlotNode.query.get_or_404(node_id)
+    if node.book.user_id != current_user.id:
+        abort(403)
     field = request.form.get('field', '')
     value = request.form.get('value', '')
     if field == 'time_in_story':
@@ -174,8 +195,11 @@ def update_field(node_id):
 
 
 @plots_bp.route('/node/<int:node_id>/delete', methods=['POST'])
+@login_required
 def delete(node_id):
     node = PlotNode.query.get_or_404(node_id)
+    if node.book.user_id != current_user.id:
+        abort(403)
     book_id = node.book_id
     db.session.delete(node)
     db.session.commit()
@@ -184,9 +208,12 @@ def delete(node_id):
 
 
 @plots_bp.route('/node/<int:node_id>/move', methods=['POST'])
+@login_required
 def move(node_id):
     """上移或下移情节节点"""
     node = PlotNode.query.get_or_404(node_id)
+    if node.book.user_id != current_user.id:
+        abort(403)
     direction = request.form.get('direction')
     book_id = node.book_id
 
