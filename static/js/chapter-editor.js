@@ -449,6 +449,9 @@
       .then(function () {
         state.dirty = false;
         if (indicator) { indicator.textContent = '已保存'; indicator.className = 'editor-save-indicator saved'; }
+      }).catch(function (err) {
+        console.error('自动保存失败:', err);
+        if (indicator) { indicator.textContent = '保存失败'; indicator.className = 'editor-save-indicator unsaved'; }
       });
   }
 

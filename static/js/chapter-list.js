@@ -123,6 +123,8 @@
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ order_list: orderList }),
+    }).catch(function (err) {
+      console.error('排序保存失败:', err);
     });
   }
 
